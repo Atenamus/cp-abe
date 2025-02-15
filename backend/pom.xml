@@ -69,6 +69,23 @@
 			<artifactId>spring-security-test</artifactId>
 			<scope>test</scope>
 		</dependency>
+
+		<dependency>
+      		<groupId>jpbc</groupId>
+      		<artifactId>jpbc-api</artifactId>
+			<version>2.0.0</version>
+			<scope>system</scope>
+			<systemPath>${project.basedir}/lib/jpbc-api-2.0.0.jar</systemPath>
+   		</dependency>
+    
+		<dependency>
+			<groupId>jpbc</groupId>
+			<artifactId>jpbc-plaf</artifactId>
+			<version>2.0.0</version>
+			<scope>system</scope>
+			<systemPath>${project.basedir}/lib/jpbc-plaf-2.0.0.jar</systemPath>
+		</dependency>
+	
 	</dependencies>
 
 	<build>
