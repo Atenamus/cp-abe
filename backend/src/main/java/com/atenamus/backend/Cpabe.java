@@ -1,6 +1,9 @@
 package com.atenamus.backend;
 
 import java.io.ByteArrayInputStream;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
+import java.util.ArrayList;
 
 import it.unisa.dia.gas.jpbc.Element;
 import it.unisa.dia.gas.jpbc.Pairing;
@@ -70,4 +73,69 @@ public class Cpabe {
         // Compute e(g, g_alpha) (g_hat_alpha)
         pub.g_hat_alpha = pairing.pairing(pub.g, msk.g_alpha);
     }
+
+    /*
+     * Generate a private key with the given set of attributes.
+     */
+    public PrivateKey keygen(PublicKey pub, MasterSecretKey msk, String[] attrs)
+            throws NoSuchAlgorithmException {
+        PrivateKey prv = new PrivateKey();
+        Element g_r, r, beta_inv;
+        Pairing pairing;
+
+        /* initialize */
+        pairing = pub.p;
+        prv.d = pairing.getG2().newElement();
+        g_r = pairing.getG2().newElement();
+        r = pairing.getZr().newElement();
+        beta_inv = pairing.getZr().newElement();
+
+        /* compute */
+        r.setToRandom();
+        g_r = pub.gp.duplicate();
+        g_r.powZn(r);
+
+        prv.d = msk.g_alpha.duplicate();
+        prv.d.mul(g_r);
+        beta_inv = msk.beta.duplicate();
+        beta_inv.invert();
+        prv.d.powZn(beta_inv);
+
+        int i, len = attrs.length;
+        prv.comps = new ArrayList<PrivateKeyComp>();
+        for (i = 0; i < len; i++) {
+            PrivateKeyComp comp = new PrivateKeyComp();
+            Element h_rp;
+            Element rp;
+
+            comp.attr = attrs[i];
+
+            comp.d = pairing.getG2().newElement();
+            comp.dp = pairing.getG1().newElement();
+            h_rp = pairing.getG2().newElement();
+            rp = pairing.getZr().newElement();
+
+            elementFromString(h_rp, comp.attr);
+            rp.setToRandom();
+
+            h_rp.powZn(rp);
+
+            comp.d = g_r.duplicate();
+            comp.d.mul(h_rp);
+            comp.dp = pub.g.duplicate();
+            comp.dp.powZn(rp);
+
+            prv.comps.add(comp);
+        }
+
+        return prv;
+    }
+
+    private static void elementFromString(Element h, String s)
+            throws NoSuchAlgorithmException {
+        MessageDigest md = MessageDigest.getInstance("SHA-1");
+        byte[] digest = md.digest(s.getBytes());
+        h.setFromHash(digest, 0, digest.length);
+    }
+
 }

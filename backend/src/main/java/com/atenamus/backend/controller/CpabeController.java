@@ -1,11 +1,14 @@
 package com.atenamus.backend.controller;
 
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.atenamus.backend.Cpabe;
 import com.atenamus.backend.MasterSecretKey;
+import com.atenamus.backend.PrivateKey;
 import com.atenamus.backend.PublicKey;
 import com.atenamus.backend.dto.MasterSecretKeyDto;
 import com.atenamus.backend.dto.PublicKeyDto;
@@ -13,7 +16,9 @@ import com.atenamus.backend.util.FileUtil;
 import com.atenamus.backend.util.SerializeUtil;
 
 import java.io.IOException;
+import java.security.NoSuchAlgorithmException;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 @RestController
@@ -22,6 +27,7 @@ public class CpabeController {
 
     private static final String PUB_KEY_FILE = "public_key.dat";
     private static final String MSK_KEY_FILE = "master_secret_key.dat";
+    private static final String PRV_KEY_FILE = "private_key.dat";
 
     @GetMapping("/setup")
     public Map<String, Object> setup() {
@@ -62,4 +68,34 @@ public class CpabeController {
 
         return response;
     }
+
+    @PostMapping("/keygen")
+    public Map<String, Object> keygen(@RequestBody Map<String, Object> request) {
+        Map<String, Object> response = new HashMap<>();
+
+        try {
+            @SuppressWarnings("unchecked")
+            String[] attributes = ((List<String>) request.get("attributes")).toArray(new String[0]);
+
+            byte[] pubBytes = FileUtil.readFile(PUB_KEY_FILE);
+            PublicKey pub = SerializeUtil.unserializePublicKey(pubBytes);
+
+            byte[] mskBytes = FileUtil.readFile(MSK_KEY_FILE);
+            MasterSecretKey msk = SerializeUtil.unserializeMasterSecretKey(pub, mskBytes);
+
+            Cpabe cpabe = new Cpabe();
+            PrivateKey prv = cpabe.keygen(pub, msk, attributes);
+
+            byte[] prvBytes = SerializeUtil.serializePrivateKey(prv);
+            FileUtil.writeFile(PRV_KEY_FILE, prvBytes);
+
+            response.put("message", "Private key generated successfully.");
+            response.put("attributes", attributes);
+        } catch (IOException | NoSuchAlgorithmException e) {
+            response.put("error", "An error occurred during private key generation: " + e.getMessage());
+        }
+
+        return response;
+    }
+
 }
