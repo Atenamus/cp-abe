@@ -5,6 +5,15 @@ import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
 
+import com.atenamus.backend.models.Cipher;
+import com.atenamus.backend.models.CipherKey;
+import com.atenamus.backend.models.MasterSecretKey;
+import com.atenamus.backend.models.Policy;
+import com.atenamus.backend.models.Polynomial;
+import com.atenamus.backend.models.PrivateKey;
+import com.atenamus.backend.models.PrivateKeyComp;
+import com.atenamus.backend.models.PublicKey;
+
 import it.unisa.dia.gas.jpbc.Element;
 import it.unisa.dia.gas.jpbc.Pairing;
 import it.unisa.dia.gas.plaf.jpbc.pairing.PairingFactory;
@@ -12,14 +21,13 @@ import it.unisa.dia.gas.plaf.jpbc.pairing.parameters.PropertiesParameters;
 
 public class Cpabe {
 
-    private static final String curveParams =
-            "type a\n" + "q 87807107996633125224377819847540498158068831994142082"
-                    + "1102865339926647563088022295707862517942266222142315585"
-                    + "8769582317459277713367317481324925129998224791\n"
-                    + "h 12016012264891146079388821366740534204802954401251311"
-                    + "822919615131047207289359704531102844802183906537786776\n"
-                    + "r 730750818665451621361119245571504901405976559617\n" + "exp2 159\n"
-                    + "exp1 107\n" + "sign1 1\n" + "sign0 1\n";
+    private static final String curveParams = "type a\n" + "q 87807107996633125224377819847540498158068831994142082"
+            + "1102865339926647563088022295707862517942266222142315585"
+            + "8769582317459277713367317481324925129998224791\n"
+            + "h 12016012264891146079388821366740534204802954401251311"
+            + "822919615131047207289359704531102844802183906537786776\n"
+            + "r 730750818665451621361119245571504901405976559617\n" + "exp2 159\n"
+            + "exp1 107\n" + "sign1 1\n" + "sign0 1\n";
 
     public void setup(PublicKey pub, MasterSecretKey msk) {
         Element alpha, beta_inv;
@@ -131,12 +139,15 @@ public class Cpabe {
     /**
      * Encrypt a message under the specified policy using CP-ABE.
      * 
-     * This method generates a random symmetric key and encrypts it using the CP-ABE scheme. The
-     * actual message should be encrypted separately using the returned symmetric key.
+     * This method generates a random symmetric key and encrypts it using the CP-ABE
+     * scheme. The
+     * actual message should be encrypted separately using the returned symmetric
+     * key.
      * 
-     * @param pub The public parameters for the CP-ABE scheme
+     * @param pub    The public parameters for the CP-ABE scheme
      * @param policy Access policy string (e.g., "admin AND (finance OR hr)")
-     * @return A key-ciphertext pair containing the CP-ABE ciphertext and symmetric key
+     * @return A key-ciphertext pair containing the CP-ABE ciphertext and symmetric
+     *         key
      * @throws Exception If policy parsing or encryption operations fail
      */
 
@@ -187,7 +198,8 @@ public class Cpabe {
             p.cp = pairing.getG2().newElement();
 
             elementFromString(h, p.attr);
-            p.c = pub.g.duplicate();;
+            p.c = pub.g.duplicate();
+            ;
             p.c.powZn(p.q.coef[0]);
             p.cp = h.duplicate();
             p.cp.powZn(p.q.coef[0]);

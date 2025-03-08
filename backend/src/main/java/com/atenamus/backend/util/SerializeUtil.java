@@ -3,9 +3,10 @@ package com.atenamus.backend.util;
 import java.io.ByteArrayInputStream;
 import java.util.ArrayList;
 
-import com.atenamus.backend.MasterSecretKey;
-import com.atenamus.backend.PublicKey;
-import com.atenamus.backend.PrivateKey;
+import com.atenamus.backend.models.MasterSecretKey;
+import com.atenamus.backend.models.PrivateKey;
+import com.atenamus.backend.models.PublicKey;
+
 import it.unisa.dia.gas.jpbc.Element;
 import it.unisa.dia.gas.jpbc.Pairing;
 import it.unisa.dia.gas.plaf.jpbc.pairing.PairingFactory;

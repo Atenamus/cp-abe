@@ -6,14 +6,14 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 import com.atenamus.backend.AESCoder;
-import com.atenamus.backend.Cipher;
-import com.atenamus.backend.CipherKey;
 import com.atenamus.backend.Cpabe;
-import com.atenamus.backend.MasterSecretKey;
-import com.atenamus.backend.PrivateKey;
-import com.atenamus.backend.PublicKey;
 import com.atenamus.backend.dto.MasterSecretKeyDto;
 import com.atenamus.backend.dto.PublicKeyDto;
+import com.atenamus.backend.models.Cipher;
+import com.atenamus.backend.models.CipherKey;
+import com.atenamus.backend.models.MasterSecretKey;
+import com.atenamus.backend.models.PrivateKey;
+import com.atenamus.backend.models.PublicKey;
 import com.atenamus.backend.util.FileUtil;
 import com.atenamus.backend.util.SerializeUtil;
 import it.unisa.dia.gas.jpbc.Element;
@@ -136,6 +136,5 @@ public class CpabeController {
 
         return response;
     }
-
 
 }
