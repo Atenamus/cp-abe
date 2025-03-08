@@ -1,0 +1,9 @@
+package com.atenamus.backend;
+
+import it.unisa.dia.gas.jpbc.Element;
+
+public class Cipher {
+  public Element cs; /* G_T */
+  public Element c; /* G_1 */
+  public Policy p;
+}

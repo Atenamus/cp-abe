@@ -5,7 +5,9 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
-
+import com.atenamus.backend.AESCoder;
+import com.atenamus.backend.Cipher;
+import com.atenamus.backend.CipherKey;
 import com.atenamus.backend.Cpabe;
 import com.atenamus.backend.MasterSecretKey;
 import com.atenamus.backend.PrivateKey;
@@ -14,7 +16,7 @@ import com.atenamus.backend.dto.MasterSecretKeyDto;
 import com.atenamus.backend.dto.PublicKeyDto;
 import com.atenamus.backend.util.FileUtil;
 import com.atenamus.backend.util.SerializeUtil;
-
+import it.unisa.dia.gas.jpbc.Element;
 import java.io.IOException;
 import java.security.NoSuchAlgorithmException;
 import java.util.HashMap;
@@ -92,10 +94,48 @@ public class CpabeController {
             response.put("message", "Private key generated successfully.");
             response.put("attributes", attributes);
         } catch (IOException | NoSuchAlgorithmException e) {
-            response.put("error", "An error occurred during private key generation: " + e.getMessage());
+            response.put("error",
+                    "An error occurred during private key generation: " + e.getMessage());
         }
 
         return response;
     }
+
+    @PostMapping("/encrypt")
+    public Map<String, Object> encrypt(@RequestBody Map<String, Object> request) {
+        Map<String, Object> response = new HashMap<>();
+        try {
+            String policy = (String) request.get("policy");
+            String data = (String) request.get("data");
+            // Read public key from file
+            byte[] pubBytes = FileUtil.readFile(PUB_KEY_FILE);
+            PublicKey pub = SerializeUtil.unserializePublicKey(pubBytes);
+
+            Cpabe cpabe = new Cpabe();
+
+            CipherKey cipherKey = cpabe.enc(pub, policy);
+            Cipher cph = cipherKey.cph;
+            Element symmetric_key = cipherKey.key;
+
+            if (cph == null) {
+                response.put("error", "An error occurred during encryption");
+                return response;
+            }
+
+            byte[] plaintext = data.getBytes();
+            byte[] aesBuf = AESCoder.encrypt(symmetric_key.toBytes(), plaintext);
+
+            response.put("message", "Data encrypted successfully");
+            response.put("policy", policy);
+            response.put("encryptedData", aesBuf);
+
+        } catch (Exception e) {
+            e.printStackTrace();
+            response.put("error", "An error occurred during encryption: " + e.getMessage());
+        }
+
+        return response;
+    }
+
 
 }

@@ -5,7 +5,7 @@
 ## Refactoring
 
 ## High Priority (Core Functionality)
-- [ ] Implement Encrypt API endpoint: Create endpoint for encrypting files with access policies.
+- [x] Implement Encrypt API endpoint: Create endpoint for encrypting files with access policies.
 - [ ] Implement Decrypt API endpoint: Create endpoint for decrypting files using private keys.
 - [ ] Implement exception handling with meaningful error messages for all CP-ABE operations.
 - [ ] Validate all input parameters to prevent security issues and ensure correct CP-ABE operation.
@@ -62,6 +62,10 @@
 - [ ] Document deployment instructions for different environments.
 - [ ] Create troubleshooting guide for common issues.
 - [ ] Update README with setup instructions and quick start guide.
+
+## Refractoring
+- [ ] Refactor encryption logic to read data from file and encrypt it.
+- [ ] Add a utility function to convert Policies into Postfix notation.
 
 ## Change Log
 - [x] 16/02/2025 (Tushar Agrawal): Created KeyGen API for generating attribute-based private keys.
