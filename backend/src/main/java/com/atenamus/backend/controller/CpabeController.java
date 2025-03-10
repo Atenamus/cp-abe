@@ -5,7 +5,7 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
-import com.atenamus.backend.AESCoder;
+
 import com.atenamus.backend.Cpabe;
 import com.atenamus.backend.dto.MasterSecretKeyDto;
 import com.atenamus.backend.dto.PublicKeyDto;
@@ -14,6 +14,7 @@ import com.atenamus.backend.models.CipherKey;
 import com.atenamus.backend.models.MasterSecretKey;
 import com.atenamus.backend.models.PrivateKey;
 import com.atenamus.backend.models.PublicKey;
+import com.atenamus.backend.util.AESCoder;
 import com.atenamus.backend.util.FileUtil;
 import com.atenamus.backend.util.SerializeUtil;
 import it.unisa.dia.gas.jpbc.Element;
@@ -107,13 +108,14 @@ public class CpabeController {
         try {
             String policy = (String) request.get("policy");
             String data = (String) request.get("data");
+
             // Read public key from file
             byte[] pubBytes = FileUtil.readFile(PUB_KEY_FILE);
             PublicKey pub = SerializeUtil.unserializePublicKey(pubBytes);
 
             Cpabe cpabe = new Cpabe();
 
-            CipherKey cipherKey = cpabe.enc(pub, policy);
+            CipherKey cipherKey = cpabe.encrypt(pub, policy);
             Cipher cph = cipherKey.cph;
             Element symmetric_key = cipherKey.key;
 
