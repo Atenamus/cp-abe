@@ -1,4 +1,4 @@
-package com.atenamus.backend;
+package com.atenamus.backend.models;
 
 import java.util.ArrayList;
 

@@ -1,4 +1,4 @@
-package com.atenamus.backend;
+package com.atenamus.backend.models;
 
 import it.unisa.dia.gas.jpbc.Element;
 import it.unisa.dia.gas.jpbc.Pairing;
