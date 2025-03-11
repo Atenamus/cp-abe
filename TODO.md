@@ -3,7 +3,6 @@
 ## BUGS
 
 ## Refactoring
-- [ ] Refactor encryption logic to read data from file and encrypt it.
 
 ## High Priority (Core Functionality)
 - [ ] Implement Decrypt API endpoint: Create endpoint for decrypting files using private keys.
@@ -64,6 +63,7 @@
 - [ ] Update README with setup instructions and quick start guide.
 
 ## Change Log
+- [x] 11/03/2025 (Asif Ali Khan): Refactor encryption logic to read data from file and encrypt it.
 - [X] 10/03/2025 (Tushar Agrawal): Add a utility class to convert policies into required postfix notation.
 - [x] 08/03/2025 (Asif Ali Khan): Implement Encrypt API endpoint
 - [x] 16/02/2025 (Tushar Agrawal): Created KeyGen API for generating attribute-based private keys.

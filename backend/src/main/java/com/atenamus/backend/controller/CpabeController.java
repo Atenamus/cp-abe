@@ -31,6 +31,8 @@ public class CpabeController {
     private static final String PUB_KEY_FILE = "public_key.dat";
     private static final String MSK_KEY_FILE = "master_secret_key.dat";
     private static final String PRV_KEY_FILE = "private_key.dat";
+    private static final String DATA_FILE = "data.txt";
+    private static final String ENCRYPTED_DATA_FILE = "data.txt.cpabe";
 
     @GetMapping("/setup")
     public Map<String, Object> setup() {
@@ -107,7 +109,9 @@ public class CpabeController {
         Map<String, Object> response = new HashMap<>();
         try {
             String policy = (String) request.get("policy");
-            String data = (String) request.get("data");
+
+            // Read data from file
+            byte[] plaintext = FileUtil.readFile(DATA_FILE);
 
             // Read public key from file
             byte[] pubBytes = FileUtil.readFile(PUB_KEY_FILE);
@@ -124,12 +128,12 @@ public class CpabeController {
                 return response;
             }
 
-            byte[] plaintext = data.getBytes();
             byte[] aesBuf = AESCoder.encrypt(symmetric_key.toBytes(), plaintext);
 
             response.put("message", "Data encrypted successfully");
             response.put("policy", policy);
             response.put("encryptedData", aesBuf);
+            FileUtil.writeFile(ENCRYPTED_DATA_FILE, aesBuf);
 
         } catch (Exception e) {
             e.printStackTrace();
