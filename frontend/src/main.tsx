@@ -9,19 +9,23 @@ import FileManagementPage from './Pages/FileManagementPage.tsx';
 import EncryptPage from './Pages/EncryptPage.tsx';
 import KeyManagementPage from './Pages/KeyManagementPage.tsx';
 import PoliciesPage from './Pages/PoliciesPage.tsx';
+import DashboardLayout from './Pages/DashboardLayout.tsx';
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
       <BrowserRouter>
-        <Routes>
-          <Route path="/" element={<App />} />
-          <Route path="/dashboard" element={<DashboardPage />} />
-          <Route path="/dashboard/files" element={<FileManagementPage />} />
-          <Route path="/dashboard/files/encrypt" element={<EncryptPage />} />
-          <Route path="/dashboard/keys" element={<KeyManagementPage />} />
-          <Route path="/dashboard/policies" element={<PoliciesPage />} />
-          <Route path='/dashboard/policies/create' element={<CreatePolicyPage/>}/>
-        </Routes>
+      <Routes>
+        <Route path="/" element={<App />} />
+
+        <Route path="/dashboard" element={<DashboardLayout />}>
+          <Route index element={<DashboardPage />} />
+          <Route path="files" element={<FileManagementPage />} />
+          <Route path="files/encrypt" element={<EncryptPage />} />
+          <Route path="keys" element={<KeyManagementPage />} />
+          <Route path="policies" element={<PoliciesPage />} />
+          <Route path="policies/create" element={<CreatePolicyPage />} />
+        </Route>
+      </Routes>
     </BrowserRouter>
   </StrictMode>,
 )
