@@ -25,8 +25,12 @@ const data = {
           url: "/dashboard",
         },
         {
-          title: "Key Management",
+          title: "File Management",
           url: "/dashboard/files",
+        },
+        {
+          title: "Key Management",
+          url: "/dashboard/keys/generate",
         },
         {
           title: "Policy Builder",

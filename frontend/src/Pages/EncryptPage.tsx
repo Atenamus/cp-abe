@@ -112,10 +112,10 @@ export default function EncryptPage() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 px-8 py-4">
       <div>
-        <h1 className="text-3xl font-bold tracking-tight">Encrypt File</h1>
-        <p className="text-muted-foreground">Encrypt files with attribute-based access policies</p>
+        <h1 className="text-3xl font-bold tracking-tight py-3">Encrypt File</h1>
+        <p className="text-muted-foreground ">Encrypt files with attribute-based access policies</p>
       </div>
 
       <Card>

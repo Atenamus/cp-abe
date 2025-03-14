@@ -21,14 +21,14 @@
 ## Frontend Implementation
 - [ ] Build user authentication interface with login form and registration.
 - [ ] Design responsive dashboard layout for key management and encryption operations.
-- [ ] Implement key management UI to view, download, and manage public/master/private keys.
-- [ ] Create interactive policy builder with AND operators and attribute selection.
-- [ ] Create encryption form for uploading files and specifying attribute-based access policies.
-- [ ] Implement drag-and-drop file upload with progress indicators.
-- [ ] Build file browser for viewing and managing encrypted documents.
-- [ ] Add user-friendly error messages for all cryptographic operations.
+- [X] Implement key management UI to view, download, and manage public/master/private keys.
+- [X] Create interactive policy builder with AND operators and attribute selection.
+- [X] Create encryption form for uploading files and specifying attribute-based access policies.
+- [X] Implement drag-and-drop file upload with progress indicators.
+- [X] Build file browser for viewing and managing encrypted documents.
+- [X] Add user-friendly error messages for all cryptographic operations.
 - [ ] Create visualization for attribute possession vs. policy requirements.
-- [ ] Implement toast notification system for operation success/failure.
+- [X] Implement toast notification system for operation success/failure.
 - [ ] Design responsive layout for all screen sizes and devices.
 - [ ] Add help tooltips for complex CP-ABE concepts and operations.
 - [ ] Create UI component tests to ensure frontend reliability.
@@ -64,8 +64,16 @@
 - [ ] Update README with setup instructions and quick start guide.
 
 ## Change Log
+- [X] 14/03/2025 (R Lalith): Implement key management UI to view, download, and manage public/master/private keys.
+- [X] 14/03/2025 (R Lalith): Create interactive policy builder with AND operators and attribute selection.
+- [X] 14/03/2025 (R Lalith): Create encryption form for uploading files and specifying attribute-based access policies.
+- [X] 14/03/2025 (R Lalith): Implement drag-and-drop file upload with progress indicators.
+- [X] 14/03/2025 (R Lalith): Build file browser for viewing and managing encrypted documents.
+- [X] 14/03/2025 (R Lalith): Add user-friendly error messages for all cryptographic operations.
+- [X] 14/03/2025 (R Lalith): Implement toast notification system for operation success/failure.
 - [X] 10/03/2025 (Tushar Agrawal): Add a utility class to convert policies into required postfix notation.
 - [x] 08/03/2025 (Asif Ali Khan): Implement Encrypt API endpoint
 - [x] 16/02/2025 (Tushar Agrawal): Created KeyGen API for generating attribute-based private keys.
 - [x] 15/02/2025 (Tushar Agrawal): Implemented Setup API for generating system parameters or public key and master key.
+
 

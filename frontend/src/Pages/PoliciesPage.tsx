@@ -12,15 +12,15 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog"
 import { toast } from "sonner"
-import { Plus, Trash, Edit, Copy, Info } from "lucide-react"
+import { Plus, Trash, Edit, Info } from "lucide-react"
 import { Link } from "react-router"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 
 export default function PoliciesPage() {
   const [isDeleting, setIsDeleting] = useState(false)
-  const [selectedPolicy, setSelectedPolicy] = useState<string | null>(null)
+  const [selectedPolicy, setSelectedPolicy] = useState<string | null>(null);
 
-  const handleDeletePolicy = async (policyId: string) => {
+  const handleDeletePolicy = async (policyId : any) => {
     setIsDeleting(true)
     try {
       // Simulate API call
@@ -38,18 +38,12 @@ export default function PoliciesPage() {
     }
   }
 
-  const handleCopyPolicy = (policyId: string) => {
-    toast("Policy copied", {
-      description: "The policy has been copied to clipboard",
-    })
-  }
-
   // Sample policy data
   const policies = [
     {
       id: "pol-1",
-      name: "Engineering Team Access",
-      description: "Access policy for engineering team members",
+      name: "Engineering Team ",
+      description: "Access policy for engineering ",
       created: "2025-01-15",
       expression: "(department:engineering AND role:developer) OR (role:admin)",
       files: 8,
@@ -59,7 +53,7 @@ export default function PoliciesPage() {
       name: "Marketing Documents",
       description: "Access policy for marketing materials",
       created: "2025-02-20",
-      expression: "department:marketing AND (role:manager OR role:content-creator)",
+      expression: "department:marketing AND (role:manager OR role:creator)",
       files: 12,
     },
     {
@@ -73,13 +67,13 @@ export default function PoliciesPage() {
   ]
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
+    <div className="container mx-auto py-8 px-4 min">
+      <div className="flex items-center justify-between mb-8">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Access Policies</h1>
-          <p className="text-muted-foreground">Create and manage attribute-based access control policies</p>
+          <h1 className="text-2xl font-semibold">Access Policies</h1>
+          <p className="text-muted-foreground text-sm mt-1">Manage attribute-based access control policies</p>
         </div>
-        <Button asChild>
+        <Button asChild size="sm">
           <Link to="/dashboard/policies/create">
             <Plus className="mr-2 h-4 w-4" />
             Create Policy
@@ -87,76 +81,91 @@ export default function PoliciesPage() {
         </Button>
       </div>
 
-      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3 min-h-[40px] min-w-[150px]">
         {policies.map((policy) => (
-          <Card key={policy.id}>
+          <Card key={policy.id} className="border border-border/40">
             <CardHeader className="pb-2">
               <div className="flex items-center justify-between">
-                <CardTitle className="text-lg">{policy.name}</CardTitle>
-                <Badge>{policy.files} files</Badge>
+                <CardTitle className="text-lg font-medium">{policy.name}</CardTitle>
+                <Badge variant="secondary" className="font-normal text-xs">
+                  {policy.files} files
+                </Badge>
               </div>
-              <CardDescription>{policy.description}</CardDescription>
+              <CardDescription className="mt-1 text-sm">{policy.description}</CardDescription>
             </CardHeader>
-            <CardContent className="pb-2">
+            <CardContent className="pb-3">
               <div className="space-y-2">
                 <div className="flex items-center">
-                  <div className="text-sm font-medium">Policy Expression:</div>
+                  <div className="text-xs font-medium">Policy Expression</div>
                   <TooltipProvider>
                     <Tooltip>
                       <TooltipTrigger asChild>
-                        <Button variant="ghost" size="icon" className="h-6 w-6 ml-1">
-                          <Info className="h-3 w-3" />
+                        <Button variant="ghost" size="icon" className="h-6 w-6 ml-1 p-0">
+                          <Info className="h-3.5 w-3.5" />
                           <span className="sr-only">Policy Info</span>
                         </Button>
                       </TooltipTrigger>
-                      <TooltipContent>
+                      <TooltipContent side="top">
                         <p className="max-w-xs text-xs">
-                          This policy uses AND/OR operators to combine attributes. Users must possess the required
+                          This policy uses AND operators to combine attributes. Users must possess the required
                           attributes to access files.
                         </p>
                       </TooltipContent>
                     </Tooltip>
                   </TooltipProvider>
                 </div>
-                <div className="rounded-md bg-muted p-2">
+                <div className="rounded-md bg-muted p-2 min-h-[40px] min-w-[150px] flex items-center">
                   <code className="text-xs">{policy.expression}</code>
                 </div>
                 <div className="text-xs text-muted-foreground">Created on {policy.created}</div>
               </div>
             </CardContent>
-            <CardFooter className="flex justify-between">
-              <div className="flex space-x-2">
-                <Button variant="outline" size="sm" onClick={() => handleCopyPolicy(policy.id)}>
-                  <Copy className="mr-2 h-3 w-3" />
-                  Copy
-                </Button>
-                <Button variant="outline" size="sm" asChild>
-                  <Link to={`/dashboard/policies/edit/${policy.id}`}>
-                    <Edit className="mr-2 h-3 w-3" />
-                    Edit
-                  </Link>
-                </Button>
-              </div>
+            <CardFooter className="pt-0 flex justify-end gap-2">
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button variant="ghost" size="icon" className="h-8 w-8" asChild>
+                      <Link to={`/dashboard/policies/edit/${policy.id}`}>
+                        <Edit className="h-4 w-4" />
+                        <span className="sr-only">Edit policy</span>
+                      </Link>
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>Edit policy</TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+
               <Dialog>
-                <DialogTrigger asChild>
-                  <Button variant="destructive" size="sm" onClick={() => setSelectedPolicy(policy.id)}>
-                    <Trash className="mr-2 h-3 w-3" />
-                    Delete
-                  </Button>
-                </DialogTrigger>
-                <DialogContent>
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <DialogTrigger asChild>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/10"
+                          onClick={() => setSelectedPolicy(policy.id)}
+                        >
+                          <Trash className="h-4 w-4" />
+                          <span className="sr-only">Delete policy</span>
+                        </Button>
+                      </DialogTrigger>
+                    </TooltipTrigger>
+                    <TooltipContent>Delete policy</TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+                <DialogContent className="sm:max-w-md">
                   <DialogHeader>
                     <DialogTitle>Delete Policy</DialogTitle>
-                    <DialogDescription>
-                      Are you sure you want to delete this policy? This will not affect files that have already been
-                      encrypted with this policy, but they may become inaccessible.
+                    <DialogDescription className="text-sm">
+                      Are you sure you want to delete this policy? Files encrypted with this policy may become inaccessible.
                     </DialogDescription>
                   </DialogHeader>
-                  <DialogFooter>
-                    <Button variant="outline" onClick={() => setSelectedPolicy(null)}>
+                  <DialogFooter className="mt-4 gap-2 sm:gap-0">
+                    <Button variant="outline" size="sm" onClick={() => setSelectedPolicy(null)}>
                       Cancel
                     </Button>
-                    <Button variant="destructive" onClick={() => handleDeletePolicy(policy.id)} disabled={isDeleting}>
+                    <Button variant="destructive" size="sm" onClick={() => handleDeletePolicy(policy.id)} disabled={isDeleting}>
                       {isDeleting ? "Deleting..." : "Delete"}
                     </Button>
                   </DialogFooter>
@@ -169,4 +178,3 @@ export default function PoliciesPage() {
     </div>
   )
 }
-

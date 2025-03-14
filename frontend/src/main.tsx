@@ -21,7 +21,7 @@ createRoot(document.getElementById('root')!).render(
           <Route index element={<DashboardPage />} />
           <Route path="files" element={<FileManagementPage />} />
           <Route path="files/encrypt" element={<EncryptPage />} />
-          <Route path="keys" element={<KeyManagementPage />} />
+          <Route path="keys/generate" element={<KeyManagementPage />} />
           <Route path="policies" element={<PoliciesPage />} />
           <Route path="policies/create" element={<CreatePolicyPage />} />
         </Route>

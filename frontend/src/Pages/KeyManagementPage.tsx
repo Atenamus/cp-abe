@@ -1,10 +1,20 @@
+"use client"
+
 import { useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Badge } from "@/components/ui/badge"
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
-import {toast} from "sonner";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog"
+import { toast } from "sonner"
 import { Download, Eye, EyeOff, Key, Plus, RefreshCw, Trash } from "lucide-react"
 
 export default function KeyManagementPage() {
@@ -31,15 +41,25 @@ export default function KeyManagementPage() {
       await new Promise((resolve) => setTimeout(resolve, 1000))
       toast("Key deleted", { description: "The key has been deleted successfully" })
     } catch {
-      toast("Failed to delete key", { description: "There was an error deleting the key"})
+      toast("Failed to delete key", { description: "There was an error deleting the key" })
     } finally {
       setIsDeleting(false)
       setSelectedKey(null)
     }
   }
 
-  const handleDownloadKey = (keyId: string, keyType: string) => {
-    toast("Key downloaded", { description: `Your ${keyType} key has been downloaded` })
+  const handleDownloadKey = (keyId: string) => {
+    const keyContent = `Key ID: ${keyId}\nKey Data: ***********`
+    const blob = new Blob([keyContent], { type: "text/plain" })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement("a")
+    a.href = url
+    a.download = `${keyId}.txt`
+    document.body.appendChild(a)
+    a.click()
+    document.body.removeChild(a)
+    URL.revokeObjectURL(url)
+    toast("Key downloaded", { description: "Your key has been downloaded successfully" })
   }
 
   const masterKeys = [{ id: "mk-1", name: "Master Key 1", created: "2025-01-15", status: "active" }]
@@ -49,7 +69,7 @@ export default function KeyManagementPage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold">Key Management</h1>
-          <p className="text-muted-foreground">Manage your cryptographic keys for secure access control</p>
+          <p className="text-muted-foreground py-1.5">Manage your cryptographic keys for secure access control</p>
         </div>
         <Button onClick={handleGenerateKey} disabled={isGenerating} size="lg">
           {isGenerating ? <RefreshCw className="mr-2 h-4 w-4 animate-spin" /> : <Plus className="mr-2 h-4 w-4" />}
@@ -58,7 +78,7 @@ export default function KeyManagementPage() {
       </div>
 
       <Tabs defaultValue="master">
-        <TabsList className="grid w-full grid-cols-3">
+        <TabsList className="grid w-full grid-cols-3 min-w-[900px]">
           <TabsTrigger value="master">Master Keys</TabsTrigger>
           <TabsTrigger value="public">Public Keys</TabsTrigger>
           <TabsTrigger value="private">Private Keys</TabsTrigger>
@@ -75,31 +95,42 @@ export default function KeyManagementPage() {
                   </div>
                   <CardDescription>Created on {key.created}</CardDescription>
                 </CardHeader>
-                <CardContent>
-                  <div className="flex items-center space-x-2 rounded-md border p-2">
-                    <Key className="h-4 w-4 text-muted-foreground" />
-                    <div className="text-xs font-medium">
-                      {showPrivateKey ? "a1b2c3d4e5f6g7h8i9j0k1l2m3n4o5p6" : "••••••••••••••••••••••••••••••••"}
-                    </div>
-                    <Button variant="ghost" size="icon" className="ml-auto h-6 w-6" onClick={() => setShowPrivateKey(!showPrivateKey)}>
-                      {showPrivateKey ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                    </Button>
-                  </div>
-                </CardContent>
-                <CardFooter className="flex gap-2">
-                  <Button variant="outline" size="sm" className="w-full" onClick={() => handleDownloadKey(key.id, "master")}>Download</Button>
+                <CardFooter className="flex justify-end gap-2">
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-8 w-8 text-muted-foreground hover:text-foreground"
+                    onClick={() => handleDownloadKey(key.id)}
+                    title="Download key"
+                  >
+                    <Download className="h-4 w-4" />
+                  </Button>
                   <Dialog>
                     <DialogTrigger asChild>
-                      <Button variant="destructive" size="sm" className="w-full" onClick={() => setSelectedKey(key.id)}>Delete</Button>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8 text-muted-foreground hover:text-destructive"
+                        onClick={() => setSelectedKey(key.id)}
+                        title="Delete key"
+                      >
+                        <Trash className="h-4 w-4" />
+                      </Button>
                     </DialogTrigger>
                     <DialogContent>
                       <DialogHeader>
                         <DialogTitle>Delete Master Key</DialogTitle>
-                        <DialogDescription>Are you sure you want to delete this master key? This action cannot be undone.</DialogDescription>
+                        <DialogDescription>
+                          Are you sure you want to delete this master key? This action cannot be undone.
+                        </DialogDescription>
                       </DialogHeader>
                       <DialogFooter>
-                        <Button variant="outline" onClick={() => setSelectedKey(null)}>Cancel</Button>
-                        <Button variant="destructive" onClick={() => handleDeleteKey(key.id)} disabled={isDeleting}>{isDeleting ? "Deleting..." : "Delete"}</Button>
+                        <Button variant="outline" onClick={() => setSelectedKey(null)}>
+                          Cancel
+                        </Button>
+                        <Button variant="destructive" onClick={() => handleDeleteKey(key.id)} disabled={isDeleting}>
+                          {isDeleting ? "Deleting..." : "Delete"}
+                        </Button>
                       </DialogFooter>
                     </DialogContent>
                   </Dialog>

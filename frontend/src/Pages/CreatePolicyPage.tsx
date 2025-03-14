@@ -219,7 +219,6 @@ export default function CreatePolicyPage() {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="AND">AND</SelectItem>
-                  <SelectItem value="OR">OR</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -233,14 +232,13 @@ export default function CreatePolicyPage() {
                   {group.attributes.length > 1 && (
                     <Select
                       value={group.operator}
-                      onValueChange={(value) => handleGroupOperatorChange(group.id, value as "AND" | "OR")}
+                      onValueChange={(value) => handleGroupOperatorChange(group.id, value as "AND" )}
                     >
                       <SelectTrigger className="w-24">
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
                         <SelectItem value="AND">AND</SelectItem>
-                        <SelectItem value="OR">OR</SelectItem>
                       </SelectContent>
                     </Select>
                   )}
