@@ -4,7 +4,6 @@ import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
-import java.util.Base64;
 import java.io.InputStream;
 
 public class FileUtil {
@@ -43,6 +42,67 @@ public class FileUtil {
             }
             inputStream.close();
             return content;
+        }
+    }
+
+    public static void writeCpabeFile(String encfile,
+            byte[] cphBuf, byte[] aesBuf) throws IOException {
+        int i;
+        try (OutputStream os = new FileOutputStream(encfile)) {
+            /* write aes_buf */
+            for (i = 3; i >= 0; i--)
+                os.write(((aesBuf.length & (0xff << 8 * i)) >> 8 * i));
+            os.write(aesBuf);
+            /* write cph_buf */
+            for (i = 3; i >= 0; i--)
+                os.write(((cphBuf.length & (0xff << 8 * i)) >> 8 * i));
+            os.write(cphBuf);
+            os.close();
+        }
+
+    }
+
+    public static byte[][] readCpabeFile(String encryptedFile) throws IOException {
+        int i, len;
+        try (InputStream is = new FileInputStream(encryptedFile)) {
+            byte[][] res = new byte[2][];
+            byte[] aesBuf, cphBuf;
+
+            /* read aes buf */
+            len = 0;
+            for (i = 3; i >= 0; i--) {
+                int readByte = is.read();
+                if (readByte == -1) {
+                    throw new IOException("Unexpected end of file while reading AES buffer length.");
+                }
+                len |= readByte << (i * 8);
+            }
+            aesBuf = new byte[len];
+
+            if (is.read(aesBuf) != len) {
+                throw new IOException("Unexpected end of file while reading AES buffer.");
+            }
+
+            /* read cph buf */
+            len = 0;
+            for (i = 3; i >= 0; i--) {
+                int readByte = is.read();
+                if (readByte == -1) {
+                    throw new IOException("Unexpected end of file while reading CPH buffer length.");
+                }
+                len |= readByte << (i * 8);
+            }
+            cphBuf = new byte[len];
+
+            if (is.read(cphBuf) != len) {
+                throw new IOException("Unexpected end of file while reading CPH buffer.");
+            }
+
+            is.close();
+
+            res[0] = aesBuf;
+            res[1] = cphBuf;
+            return res;
         }
     }
 }
