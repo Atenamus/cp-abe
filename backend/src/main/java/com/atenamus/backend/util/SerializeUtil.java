@@ -15,8 +15,10 @@ import it.unisa.dia.gas.plaf.jpbc.pairing.PairingFactory;
 import it.unisa.dia.gas.plaf.jpbc.pairing.parameters.PropertiesParameters;
 
 /**
- * Utility class for serializing and deserializing cryptographic objects used in the CP-ABE scheme.
- * This class provides methods to convert complex cryptographic objects to byte arrays and back.
+ * Utility class for serializing and deserializing cryptographic objects used in
+ * the CP-ABE scheme.
+ * This class provides methods to convert complex cryptographic objects to byte
+ * arrays and back.
  */
 public class SerializeUtil {
 
@@ -26,7 +28,7 @@ public class SerializeUtil {
      * Serializes a cryptographic element to a byte list.
      * 
      * @param byteList The byte list to append the serialized element to.
-     * @param element The cryptographic element to serialize.
+     * @param element  The cryptographic element to serialize.
      */
     public static void serializeElement(ArrayList<Byte> byteList, Element element) {
         byte[] elementBytes = element.toBytes();
@@ -38,7 +40,7 @@ public class SerializeUtil {
      * Serializes a string to a byte list, prefixed with its length.
      * 
      * @param byteList The byte list to append the serialized string to.
-     * @param str The string to serialize.
+     * @param str      The string to serialize.
      */
     public static void serializeString(ArrayList<Byte> byteList, String str) {
         byte[] stringBytes = str.getBytes();
@@ -47,10 +49,31 @@ public class SerializeUtil {
     }
 
     /**
+     * Serializes a Policy object into an ArrayList of Bytes.
+     *
+     * @param arrlist The ArrayList of Bytes where the serialized data will be stored.
+     * @param p The Policy object to be serialized.
+     */
+    private static void serializePolicy(ArrayList<Byte> arrlist, Policy p) {
+        serializeUint32(arrlist, p.k);
+
+        if (p.children == null || p.children.length == 0) {
+            serializeUint32(arrlist, 0);
+            serializeString(arrlist, p.attr);
+            serializeElement(arrlist, p.c);
+            serializeElement(arrlist, p.cp);
+        } else {
+            serializeUint32(arrlist, p.children.length);
+            for (int i = 0; i < p.children.length; i++)
+                serializePolicy(arrlist, p.children[i]);
+        }
+    }
+
+    /**
      * Serializes a 32-bit unsigned integer to a byte list in big-endian format.
      * 
      * @param byteList The byte list to append the serialized integer to.
-     * @param value The 32-bit integer to serialize.
+     * @param value    The 32-bit integer to serialize.
      */
     private static void serializeUint32(ArrayList<Byte> byteList, int value) {
         for (int i = 3; i >= 0; i--) {
@@ -63,7 +86,7 @@ public class SerializeUtil {
      * Appends a byte array to a byte list.
      * 
      * @param byteList The byte list to append to.
-     * @param bytes The byte array to append.
+     * @param bytes    The byte array to append.
      */
     private static void appendByteArray(ArrayList<Byte> byteList, byte[] bytes) {
         for (byte b : bytes) {
@@ -87,7 +110,8 @@ public class SerializeUtil {
     }
 
     /**
-     * Serializes a PublicKey object to a byte array. Includes the pairing description and all
+     * Serializes a PublicKey object to a byte array. Includes the pairing
+     * description and all
      * cryptographic elements.
      * 
      * @param pub The PublicKey object to serialize.
@@ -104,7 +128,8 @@ public class SerializeUtil {
     }
 
     /**
-     * Serializes a MasterSecretKey object to a byte array. Includes the beta and g_alpha elements.
+     * Serializes a MasterSecretKey object to a byte array. Includes the beta and
+     * g_alpha elements.
      * 
      * @param msk The MasterSecretKey object to serialize.
      * @return A byte array containing the serialized master secret key.
@@ -117,7 +142,8 @@ public class SerializeUtil {
     }
 
     /**
-     * Serializes a PrivateKey object to a byte array. Includes the d element and all key components
+     * Serializes a PrivateKey object to a byte array. Includes the d element and
+     * all key components
      * with their attributes.
      * 
      * @param privateKey The PrivateKey object to serialize.
@@ -136,6 +162,37 @@ public class SerializeUtil {
         return toPrimitiveByteArray(byteList);
     }
 
+    /**
+     * Serializes a Cipher object into a byte array.
+     *
+     * @param cph the Cipher object to be serialized
+     * @return a byte array representing the serialized Cipher object
+     */
+    public static byte[] serializeCipher(Cipher cph) {
+        ArrayList<Byte> arrlist = new ArrayList<Byte>();
+        SerializeUtil.serializeElement(arrlist, cph.cs);
+        SerializeUtil.serializeElement(arrlist, cph.c);
+        SerializeUtil.serializePolicy(arrlist, cph.p);
+
+        return byte_arr2byte(arrlist);
+    }
+
+    /**
+     * Converts an ArrayList of Byte objects to a byte array.
+     *
+     * @param B the ArrayList of Byte objects to be converted
+     * @return a byte array containing the same elements as the input ArrayList
+     */
+    private static byte[] byte_arr2byte(ArrayList<Byte> B) {
+		int len = B.size();
+		byte[] b = new byte[len];
+	
+		for (int i = 0; i < len; i++)
+			b[i] = B.get(i).byteValue();
+	
+		return b;
+	}
+
     // Deserialization Methods
 
     /**
@@ -151,9 +208,10 @@ public class SerializeUtil {
     }
 
     /**
-     * Deserializes a 32-bit unsigned integer from a byte array at the specified offset.
+     * Deserializes a 32-bit unsigned integer from a byte array at the specified
+     * offset.
      * 
-     * @param arr The byte array containing the serialized integer.
+     * @param arr    The byte array containing the serialized integer.
      * @param offset The offset in the byte array to start reading from.
      * @return The deserialized 32-bit integer.
      */
@@ -168,8 +226,8 @@ public class SerializeUtil {
     /**
      * Deserializes a string from a byte array at the specified offset.
      * 
-     * @param data The byte array containing the serialized string.
-     * @param offset The offset in the byte array to start reading from.
+     * @param data      The byte array containing the serialized string.
+     * @param offset    The offset in the byte array to start reading from.
      * @param strBuffer The StringBuffer to store the deserialized string.
      * @return The updated offset after reading the string.
      */
@@ -183,10 +241,11 @@ public class SerializeUtil {
     }
 
     /**
-     * Deserializes a cryptographic element from a byte array at the specified offset.
+     * Deserializes a cryptographic element from a byte array at the specified
+     * offset.
      * 
-     * @param data The byte array containing the serialized element.
-     * @param offset The offset in the byte array to start reading from.
+     * @param data    The byte array containing the serialized element.
+     * @param offset  The offset in the byte array to start reading from.
      * @param element The Element object to populate with deserialized data.
      * @return The updated offset after reading the element.
      */
@@ -200,7 +259,8 @@ public class SerializeUtil {
     }
 
     /**
-     * Deserializes a PublicKey object from a byte array. Reconstructs the pairing and all
+     * Deserializes a PublicKey object from a byte array. Reconstructs the pairing
+     * and all
      * cryptographic elements.
      * 
      * @param data The byte array containing the serialized public key.
@@ -228,10 +288,11 @@ public class SerializeUtil {
     }
 
     /**
-     * Deserializes a MasterSecretKey object from a byte array. Requires the corresponding PublicKey
+     * Deserializes a MasterSecretKey object from a byte array. Requires the
+     * corresponding PublicKey
      * to initialize the appropriate field elements.
      * 
-     * @param pub The PublicKey associated with this master secret key.
+     * @param pub  The PublicKey associated with this master secret key.
      * @param data The byte array containing the serialized master secret key.
      * @return The deserialized MasterSecretKey object.
      */
@@ -246,10 +307,11 @@ public class SerializeUtil {
     }
 
     /**
-     * Deserializes a Cipher object from a byte array. Requires the corresponding PublicKey to
+     * Deserializes a Cipher object from a byte array. Requires the corresponding
+     * PublicKey to
      * initialize the appropriate field elements.
      * 
-     * @param pub The PublicKey associated with this cipher.
+     * @param pub    The PublicKey associated with this cipher.
      * @param cphBuf The byte array containing the serialized cipher.
      * @return The deserialized Cipher object.
      */
@@ -268,13 +330,15 @@ public class SerializeUtil {
     }
 
     /**
-     * Recursively deserializes a Policy object from a byte array. Policies can be nested and form a
+     * Recursively deserializes a Policy object from a byte array. Policies can be
+     * nested and form a
      * tree structure.
      * 
-     * @param pub The PublicKey associated with this policy.
-     * @param cphBuf The byte array containing the serialized policy.
-     * @param offset_arr Single-element array containing the current offset in the byte array, used
-     *        for recursive deserialization.
+     * @param pub        The PublicKey associated with this policy.
+     * @param cphBuf     The byte array containing the serialized policy.
+     * @param offset_arr Single-element array containing the current offset in the
+     *                   byte array, used
+     *                   for recursive deserialization.
      * @return The deserialized Policy object.
      */
     private static Policy unserializePolicy(PublicKey pub, byte[] cphBuf, int[] offset_arr) {
