@@ -20,8 +20,8 @@ public class Policy {
 	public Polynomial q;
 
 	/* only used during decription */
-	boolean satisfiable;
-	int min_leaves;
-	int attri;
-	ArrayList<Integer> satl = new ArrayList<Integer>();
+	public boolean satisfiable;
+	public int min_leaves;
+	public int attri;
+	public ArrayList<Integer> satl = new ArrayList<Integer>();
 }

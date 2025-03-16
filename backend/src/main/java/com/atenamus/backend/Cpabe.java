@@ -4,9 +4,13 @@ import java.io.ByteArrayInputStream;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
-
+import java.util.Collections;
+import java.util.Comparator;
+import org.springframework.context.annotation.Scope;
+import org.springframework.stereotype.Component;
 import com.atenamus.backend.models.Cipher;
 import com.atenamus.backend.models.CipherKey;
+import com.atenamus.backend.models.ElementBoolean;
 import com.atenamus.backend.models.MasterSecretKey;
 import com.atenamus.backend.models.Policy;
 import com.atenamus.backend.models.Polynomial;
@@ -20,17 +24,19 @@ import it.unisa.dia.gas.jpbc.Pairing;
 import it.unisa.dia.gas.plaf.jpbc.pairing.PairingFactory;
 import it.unisa.dia.gas.plaf.jpbc.pairing.parameters.PropertiesParameters;
 
+@Component
+@Scope("singleton")
 public class Cpabe {
 
     // Predefined elliptic curve parameters for the bilinear pairing
-    private static final String curveParams = "type a\n"
-            + "q 87807107996633125224377819847540498158068831994142082"
-            + "1102865339926647563088022295707862517942266222142315585"
-            + "8769582317459277713367317481324925129998224791\n"
-            + "h 12016012264891146079388821366740534204802954401251311"
-            + "822919615131047207289359704531102844802183906537786776\n"
-            + "r 730750818665451621361119245571504901405976559617\n" + "exp2 159\n"
-            + "exp1 107\n" + "sign1 1\n" + "sign0 1\n";
+    private static final String curveParams =
+            "type a\n" + "q 87807107996633125224377819847540498158068831994142082"
+                    + "1102865339926647563088022295707862517942266222142315585"
+                    + "8769582317459277713367317481324925129998224791\n"
+                    + "h 12016012264891146079388821366740534204802954401251311"
+                    + "822919615131047207289359704531102844802183906537786776\n"
+                    + "r 730750818665451621361119245571504901405976559617\n" + "exp2 159\n"
+                    + "exp1 107\n" + "sign1 1\n" + "sign0 1\n";
 
     /**
      * Setup the CP-ABE system by generating public and master secret keys.
@@ -91,8 +97,8 @@ public class Cpabe {
     /**
      * Generate a private key for a user with a given set of attributes.
      *
-     * @param pub   The public key.
-     * @param msk   The master secret key.
+     * @param pub The public key.
+     * @param msk The master secret key.
      * @param attrs The attributes associated with the user.
      * @return The generated private key.
      * @throws NoSuchAlgorithmException If the hash algorithm is not available.
@@ -153,16 +159,13 @@ public class Cpabe {
     }
 
     /**
-     * Encrypt a message under the specified policy using CP-ABE.
-     * This method generates a random symmetric key and encrypts it using the CP-ABE
-     * scheme.
-     * The actual message should be encrypted separately using the returned
-     * symmetric key.
+     * Encrypt a message under the specified policy using CP-ABE. This method generates a random
+     * symmetric key and encrypts it using the CP-ABE scheme. The actual message should be encrypted
+     * separately using the returned symmetric key.
      *
-     * @param pub    The public key.
+     * @param pub The public key.
      * @param policy The access policy string (e.g., "admin AND (finance OR hr)").
-     * @return A key-ciphertext pair containing the CP-ABE ciphertext and symmetric
-     *         key.
+     * @return A key-ciphertext pair containing the CP-ABE ciphertext and symmetric key.
      * @throws Exception If policy parsing or encryption operations fail.
      */
     public CipherKey encrypt(PublicKey pub, String policy) throws Exception {
@@ -202,10 +205,198 @@ public class Cpabe {
     }
 
     /**
+     * Decrypt a ciphertext using the provided secret keys. This method recovers the symmetric key
+     * that was encrypted using the CP-ABE scheme.
+     *
+     * @param pub The public key.
+     * @param prv The user's private key containing attributes.
+     * @param cipher The CP-ABE ciphertext.
+     * @return An ElementBoolean containing the decrypted symmetric key and a success flag.
+     * @throws Exception If decryption operations fail.
+     */
+    public ElementBoolean decrypt(PublicKey pub, PrivateKey prv, Cipher cipher) {
+        Element t;
+        Element symmetricKey;
+        ElementBoolean result = new ElementBoolean();
+
+        Pairing pairing = pub.p;
+        symmetricKey = pairing.getGT().newElement();
+        t = pairing.getGT().newElement();
+
+        checkSatisfy(cipher.p, prv);
+
+        if (!cipher.p.satisfiable) {
+            result.key = null;
+            result.satisfy = false;
+            System.out.println("attributes in private key do not satisfy the policy");
+            return result;
+        }
+
+        pickSatisfyMinLeaves(cipher.p, prv);
+
+        decFlatten(t, cipher.p, prv, pub);
+
+        symmetricKey = cipher.cs.duplicate();
+        symmetricKey.mul(t); /* num_muls++; */
+
+        t = pairing.pairing(cipher.c, prv.d);
+        t.invert();
+        symmetricKey.mul(t); /* num_muls++; */
+
+        result.key = symmetricKey;
+        result.satisfy = true;
+
+        return result;
+    }
+
+    private void checkSatisfy(Policy p, PrivateKey prv) {
+        int i, l;
+        String priavteKeyAttr;
+
+        p.satisfiable = false;
+        if (p.children == null || p.children.length == 0) {
+            for (i = 0; i < prv.comps.size(); i++) {
+                priavteKeyAttr = prv.comps.get(i).attr;
+                // System.out.println("prvAtt:" + priavteKeyAttr);
+                // System.out.println("p.attr" + p.attr);
+                if (priavteKeyAttr.compareTo(p.attr) == 0) {
+                    // System.out.println("=staisfy=");
+                    p.satisfiable = true;
+                    p.attri = i;
+                    break;
+                }
+            }
+        } else {
+            for (i = 0; i < p.children.length; i++)
+                checkSatisfy(p.children[i], prv);
+
+            l = 0;
+            for (i = 0; i < p.children.length; i++)
+                if (p.children[i].satisfiable)
+                    l++;
+
+            if (l >= p.k)
+                p.satisfiable = true;
+        }
+    }
+
+    private void pickSatisfyMinLeaves(Policy p, PrivateKey prv) {
+        int len, l, c_i, k;
+        ArrayList<Integer> childrens = new ArrayList<Integer>();
+
+        if (p.children == null || p.children.length == 0) {
+            p.min_leaves = 1;
+        } else {
+            len = p.children.length;
+            for (int i = 0; i < len; i++) {
+                if (p.children[i].satisfiable) {
+                    pickSatisfyMinLeaves(p.children[i], prv);
+                }
+            }
+            for (int i = 0; i < len; i++) {
+                childrens.add(p.children[i].min_leaves);
+            }
+
+            // childrens.sort((a, b) -> {
+            // int m = p.children[a].min_leaves;
+            // int n = p.children[b].min_leaves;
+            // return Integer.compare(m, n);
+            // });
+            Collections.sort(childrens, new IntegerComparator(p));
+
+            p.satl = new ArrayList<Integer>();
+            p.min_leaves = 0;
+            l = 0;
+
+            for (int i = 0; i < len && l < p.k; i++) {
+                c_i = childrens.get(i).intValue(); /* c[i] */
+                if (p.children[c_i].satisfiable) {
+                    l++;
+                    p.min_leaves += p.children[c_i].min_leaves;
+                    k = c_i + 1;
+                    p.satl.add(Integer.valueOf(k));
+                }
+            }
+        }
+
+    }
+
+    private static void decFlatten(Element r, Policy p, PrivateKey prv, PublicKey pub) {
+        Element one;
+        one = pub.p.getZr().newElement();
+        one.setToOne();
+        r.setToOne();
+
+        decNodeFlatten(r, one, p, prv, pub);
+    }
+
+    private static void decNodeFlatten(Element r, Element exp, Policy p, PrivateKey prv,
+            PublicKey pub) {
+        if (p.children == null || p.children.length == 0)
+            decLeafFlatten(r, exp, p, prv, pub);
+        else
+            decInternalFlatten(r, exp, p, prv, pub);
+    }
+
+    private static void decLeafFlatten(Element r, Element exp, Policy p, PrivateKey prv,
+            PublicKey pub) {
+        PrivateKeyComp c;
+        Element s, t;
+
+        c = prv.comps.get(p.attri);
+
+        s = pub.p.getGT().newElement();
+        t = pub.p.getGT().newElement();
+
+        s = pub.p.pairing(p.c, c.d); /* num_pairings++; */
+        t = pub.p.pairing(p.cp, c.dp); /* num_pairings++; */
+        t.invert();
+        s.mul(t); /* num_muls++; */
+        s.powZn(exp); /* num_exps++; */
+
+        r.mul(s); /* num_muls++; */
+    }
+
+    private static void decInternalFlatten(Element r, Element exp, Policy p, PrivateKey prv,
+            PublicKey pub) {
+        int i;
+        Element t, expnew;
+
+        t = pub.p.getZr().newElement();
+        expnew = pub.p.getZr().newElement();
+
+        for (i = 0; i < p.satl.size(); i++) {
+            lagrangeCoef(t, p.satl, (p.satl.get(i)).intValue());
+            expnew = exp.duplicate();
+            expnew.mul(t);
+            decNodeFlatten(r, expnew, p.children[p.satl.get(i) - 1], prv, pub);
+        }
+    }
+
+    private static void lagrangeCoef(Element r, ArrayList<Integer> s, int i) {
+        int j, k;
+        Element t;
+
+        t = r.duplicate();
+
+        r.setToOne();
+        for (k = 0; k < s.size(); k++) {
+            j = s.get(k).intValue();
+            if (j == i)
+                continue;
+            t.set(-j);
+            r.mul(t); /* num_muls++; */
+            t.set(i - j);
+            t.invert();
+            r.mul(t); /* num_muls++; */
+        }
+    }
+
+    /**
      * Recursively fill the policy tree with shares of the secret value.
      *
-     * @param policyNode  The current node in the policy tree.
-     * @param pub         The public key.
+     * @param policyNode The current node in the policy tree.
+     * @param pub The public key.
      * @param secretShare The secret share to be assigned to the node.
      * @throws NoSuchAlgorithmException If the hash algorithm is not available.
      */
@@ -245,8 +436,8 @@ public class Cpabe {
      * Evaluate a polynomial at a given point.
      *
      * @param result The result of the evaluation.
-     * @param poly   The polynomial to evaluate.
-     * @param x      The point at which to evaluate the polynomial.
+     * @param poly The polynomial to evaluate.
+     * @param x The point at which to evaluate the polynomial.
      */
     private static void evaluatePolynomial(Element result, Polynomial poly, Element x) {
         int i;
@@ -271,7 +462,7 @@ public class Cpabe {
     /**
      * Generate a random polynomial of a given degree.
      *
-     * @param degree       The degree of the polynomial.
+     * @param degree The degree of the polynomial.
      * @param constantTerm The constant term of the polynomial.
      * @return The generated polynomial.
      */
@@ -359,14 +550,31 @@ public class Cpabe {
         return node;
     }
 
+    private static class IntegerComparator implements Comparator<Integer> {
+        Policy policy;
+
+        public IntegerComparator(Policy p) {
+            this.policy = p;
+        }
+
+        @Override
+        public int compare(Integer o1, Integer o2) {
+            int k, l;
+            k = policy.children[o1.intValue()].min_leaves;
+            l = policy.children[o2.intValue()].min_leaves;
+            return k < l ? -1 : k == l ? 0 : 1;
+        }
+    }
+
     /**
      * Convert a string to a group element using a hash function.
      *
      * @param element The group element to set.
-     * @param str     The string to hash.
+     * @param str The string to hash.
      * @throws NoSuchAlgorithmException If the hash algorithm is not available.
      */
-    private static void elementFromString(Element element, String str) throws NoSuchAlgorithmException {
+    private static void elementFromString(Element element, String str)
+            throws NoSuchAlgorithmException {
         MessageDigest md = MessageDigest.getInstance("SHA-1");
         byte[] digest = md.digest(str.getBytes());
         element.setFromHash(digest, 0, digest.length);

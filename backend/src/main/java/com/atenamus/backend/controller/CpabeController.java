@@ -1,5 +1,6 @@
 package com.atenamus.backend.controller;
 
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -11,6 +12,7 @@ import com.atenamus.backend.dto.MasterSecretKeyDto;
 import com.atenamus.backend.dto.PublicKeyDto;
 import com.atenamus.backend.models.Cipher;
 import com.atenamus.backend.models.CipherKey;
+import com.atenamus.backend.models.ElementBoolean;
 import com.atenamus.backend.models.MasterSecretKey;
 import com.atenamus.backend.models.PrivateKey;
 import com.atenamus.backend.models.PublicKey;
@@ -20,6 +22,7 @@ import com.atenamus.backend.util.SerializeUtil;
 import it.unisa.dia.gas.jpbc.Element;
 import java.io.IOException;
 import java.security.NoSuchAlgorithmException;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -34,6 +37,9 @@ public class CpabeController {
     private static final String DATA_FILE = "data.txt";
     private static final String ENCRYPTED_DATA_FILE = "data.txt.cpabe";
 
+    @Autowired
+    private Cpabe cpabe;
+
     @GetMapping("/setup")
     public Map<String, Object> setup() {
         Map<String, Object> response = new HashMap<>();
@@ -42,7 +48,6 @@ public class CpabeController {
             PublicKey pub = new PublicKey();
             MasterSecretKey msk = new MasterSecretKey();
 
-            Cpabe cpabe = new Cpabe();
             cpabe.setup(pub, msk);
 
             byte[] pubBytes = SerializeUtil.serializePublicKey(pub);
@@ -88,7 +93,6 @@ public class CpabeController {
             byte[] mskBytes = FileUtil.readFile(MSK_KEY_FILE);
             MasterSecretKey msk = SerializeUtil.unserializeMasterSecretKey(pub, mskBytes);
 
-            Cpabe cpabe = new Cpabe();
             PrivateKey prv = cpabe.keygen(pub, msk, attributes);
 
             byte[] prvBytes = SerializeUtil.serializePrivateKey(prv);
@@ -112,32 +116,95 @@ public class CpabeController {
 
             // Read data from file
             byte[] plaintext = FileUtil.readFile(DATA_FILE);
+            System.out.println("Plaintext length: " + plaintext.length);
 
             // Read public key from file
             byte[] pubBytes = FileUtil.readFile(PUB_KEY_FILE);
             PublicKey pub = SerializeUtil.unserializePublicKey(pubBytes);
 
-            Cpabe cpabe = new Cpabe();
-
             CipherKey cipherKey = cpabe.encrypt(pub, policy);
             Cipher cph = cipherKey.cph;
             Element symmetric_key = cipherKey.key;
+
+            System.out.println("Generated symmetric key: " + symmetric_key.toString());
+            byte[] symmetricKeyBytes = symmetric_key.toBytes();
+            System.out.println("Key bytes length: " + symmetricKeyBytes.length);
+            System.out.println("Key bytes hash: " + Arrays.hashCode(symmetricKeyBytes));
 
             if (cph == null) {
                 response.put("error", "An error occurred during encryption");
                 return response;
             }
 
-            byte[] aesBuf = AESCoder.encrypt(symmetric_key.toBytes(), plaintext);
+            byte[] cphBuf = SerializeUtil.serializeCipher(cph);
+            System.out.println("CP-ABE ciphertext length: " + cphBuf.length);
+
+            byte[] aesBuf = AESCoder.encrypt(symmetricKeyBytes, plaintext);
+            System.out.println("AES encrypted data length: " + aesBuf.length);
 
             response.put("message", "Data encrypted successfully");
             response.put("policy", policy);
             response.put("encryptedData", aesBuf);
-            FileUtil.writeFile(ENCRYPTED_DATA_FILE, aesBuf);
+            FileUtil.writeCpabeFile(ENCRYPTED_DATA_FILE, cphBuf, aesBuf);
 
         } catch (Exception e) {
             e.printStackTrace();
             response.put("error", "An error occurred during encryption: " + e.getMessage());
+        }
+
+        return response;
+    }
+
+    @GetMapping("/decrypt")
+    public Map<String, Object> decrypt() {
+        Map<String, Object> response = new HashMap<>();
+        try {
+            // Cpabe cpabe = new Cpabe();
+            byte[] plaintext;
+
+            // Read public key from file
+            byte[] pubBytes = FileUtil.readFile(PUB_KEY_FILE);
+            PublicKey pub = SerializeUtil.unserializePublicKey(pubBytes);
+
+            // Read ciphertext
+            byte[][] tmp = FileUtil.readCpabeFile(ENCRYPTED_DATA_FILE);
+            byte[] aesBuf = tmp[0];
+            byte[] cphBuf = tmp[1];
+
+            System.out.println("AES encrypted data length: " + aesBuf.length);
+            System.out.println("CP-ABE ciphertext length: " + cphBuf.length);
+
+            Cipher cipher = SerializeUtil.unserializeCipher(pub, cphBuf);
+
+            // Read private key from file
+            byte[] prvBytes = FileUtil.readFile(PRV_KEY_FILE);
+            PrivateKey prv = SerializeUtil.unserializePrivateKey(pub, prvBytes);
+
+            ElementBoolean result = cpabe.decrypt(pub, prv, cipher);
+            System.out.println("Decryption result: " + result.satisfy);
+            System.out.println(
+                    "Element value: " + (result.key != null ? result.key.toString() : "null"));
+
+            if (result.satisfy) {
+                byte[] keyBytes = result.key.toBytes();
+                System.out.println("Key bytes length: " + keyBytes.length);
+                System.out.println("Key bytes hash: " + Arrays.hashCode(keyBytes));
+
+                try {
+                    plaintext = AESCoder.decrypt(keyBytes, aesBuf);
+                    response.put("message", "Data decrypted successfully");
+                    response.put("decryptedData", new String(plaintext));
+                } catch (Exception e) {
+                    System.err.println("AES decryption failed: " + e.getMessage());
+                    e.printStackTrace();
+                    response.put("error", "AES decryption failed: " + e.getMessage());
+                }
+            } else {
+                response.put("error", "Policy not satisfied during decryption");
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+            response.put("error", "An error occurred during decryption: " + e.getMessage());
         }
 
         return response;
