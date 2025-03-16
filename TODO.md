@@ -63,6 +63,7 @@
 
 ## Change Log
 
+- [x] 16/03/2025 (Tushar Agrawal): Created basic onboarding flow ui
 - [x] 16/03/2025 (Tushar Agrawal): Created landing and authentication pages for the website.
 - [x] 14/03/2025 (R Lalith): Implemented key management UI to view, download, and manage public/master/private keys.
 - [x] 14/03/2025 (R Lalith): Created interactive policy builder with AND operators and attribute selection.
