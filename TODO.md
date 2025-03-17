@@ -4,11 +4,8 @@
 
 ## Refactoring
 
-- [ ] Refactor encryption logic to read data from file and encrypt it.
-
 ## High Priority (Core Functionality)
 
-- [ ] Implement Decrypt API endpoint: Create endpoint for decrypting files using private keys.
 - [ ] Implement exception handling with meaningful error messages for all CP-ABE operations.
 - [ ] Validate all input parameters to prevent security issues and ensure correct CP-ABE operation.
 - [ ] Implement file management service to handle storage, retrieval, and cleanup of keys and encrypted files.
@@ -63,6 +60,7 @@
 
 ## Change Log
 
+- [X] 17/03/2025: Implement Decrypt API endpoint: Create endpoint for decrypting files using private keys.
 - [x] 16/03/2025 (Tushar Agrawal): Created basic onboarding flow ui
 - [x] 16/03/2025 (Tushar Agrawal): Created landing and authentication pages for the website.
 - [x] 14/03/2025 (R Lalith): Implemented key management UI to view, download, and manage public/master/private keys.
@@ -72,6 +70,7 @@
 - [x] 14/03/2025 (R Lalith): Build file browser for viewing and managing encrypted documents.
 - [x] 14/03/2025 (R Lalith): Added user-friendly error messages for all cryptographic operations.
 - [x] 14/03/2025 (R Lalith): Implemented toast notification system for operation success/failure.
+- [x] 11/03/2025 (Asif Ali Khan): Refactor encryption logic to read data from file and encrypt it.
 - [x] 10/03/2025 (Tushar Agrawal): Added a utility class to convert policies into required postfix notation.
 - [x] 08/03/2025 (Asif Ali Khan): Implemented Encrypt API endpoint
 - [x] 16/02/2025 (Tushar Agrawal): Created KeyGen API for generating attribute-based private keys.
