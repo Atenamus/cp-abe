@@ -4,7 +4,6 @@ import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
-import java.util.Base64;
 import java.io.InputStream;
 
 public class FileUtil {
@@ -43,6 +42,125 @@ public class FileUtil {
             }
             inputStream.close();
             return content;
+        }
+    }
+
+    /**
+     * Writes encrypted data to a file with the following format:
+     * - 4 bytes: Length of CP-ABE encrypted structure
+     * - CP-ABE encrypted structure bytes
+     * - 4 bytes: Length of encrypted AES key
+     * - Encrypted AES key bytes
+     * - 4 bytes: Length of AES encrypted data
+     * - AES encrypted data bytes
+     * 
+     * @param encfile         The output file path
+     * @param cphKeyBuf       The CP-ABE encrypted structure
+     * @param encryptedAesKey The encrypted AES key bytes
+     * @param aesBuf          The AES encrypted data
+     * @throws IOException If an I/O error occurs
+     */
+    public static void writeFullCpabeFile(String encfile, byte[] cphKeyBuf, byte[] encryptedAesKey, byte[] aesBuf)
+            throws IOException {
+        int i;
+        try (OutputStream os = new FileOutputStream(encfile)) {
+            /* write cpabe-encrypted structure length */
+            for (i = 3; i >= 0; i--)
+                os.write(((cphKeyBuf.length & (0xff << 8 * i)) >> 8 * i));
+            /* write cpabe-encrypted structure */
+            os.write(cphKeyBuf);
+
+            /* write encrypted aes key length */
+            for (i = 3; i >= 0; i--)
+                os.write(((encryptedAesKey.length & (0xff << 8 * i)) >> 8 * i));
+            /* write encrypted aes key */
+            os.write(encryptedAesKey);
+
+            /* write aes-encrypted data length */
+            for (i = 3; i >= 0; i--)
+                os.write(((aesBuf.length & (0xff << 8 * i)) >> 8 * i));
+            /* write aes-encrypted data */
+            os.write(aesBuf);
+            os.close();
+        }
+    }
+
+    /**
+     * Reads encrypted data from a file with the following format:
+     * - 4 bytes: Length of CP-ABE encrypted structure
+     * - CP-ABE encrypted structure bytes
+     * - 4 bytes: Length of encrypted AES key
+     * - Encrypted AES key bytes
+     * - 4 bytes: Length of AES encrypted data
+     * - AES encrypted data bytes
+     * 
+     * @param encryptedFile The input file path
+     * @return A 3D array where [0] contains AES encrypted data, [1] contains
+     *         encrypted AES key, and [2] contains CP-ABE encrypted structure
+     * @throws IOException If an I/O error occurs
+     */
+    public static byte[][] readFullCpabeFile(String encryptedFile) throws IOException {
+        int i, len;
+        try (InputStream is = new FileInputStream(encryptedFile)) {
+            byte[][] res = new byte[3][];
+            byte[] cphKeyBuf, encryptedAesKey, aesBuf;
+
+            /* read cpabe-encrypted structure length */
+            len = 0;
+            for (i = 3; i >= 0; i--) {
+                int readByte = is.read();
+                if (readByte == -1) {
+                    throw new IOException("Unexpected end of file while reading CP-ABE structure buffer length.");
+                }
+                len |= readByte << (i * 8);
+            }
+            cphKeyBuf = new byte[len];
+
+            /* read cpabe-encrypted structure */
+            if (is.read(cphKeyBuf) != len) {
+                throw new IOException("Unexpected end of file while reading CP-ABE structure buffer.");
+            }
+
+            /* read encrypted aes key length */
+            len = 0;
+            for (i = 3; i >= 0; i--) {
+                int readByte = is.read();
+                if (readByte == -1) {
+                    throw new IOException("Unexpected end of file while reading encrypted AES key buffer length.");
+                }
+                len |= readByte << (i * 8);
+            }
+            encryptedAesKey = new byte[len];
+
+            /* read encrypted aes key */
+            if (is.read(encryptedAesKey) != len) {
+                throw new IOException("Unexpected end of file while reading encrypted AES key buffer.");
+            }
+
+            /* read aes-encrypted data length */
+            len = 0;
+            for (i = 3; i >= 0; i--) {
+                int readByte = is.read();
+                if (readByte == -1) {
+                    throw new IOException("Unexpected end of file while reading AES buffer length.");
+                }
+                len |= readByte << (i * 8);
+            }
+            aesBuf = new byte[len];
+
+            /* read aes-encrypted data */
+            if (is.read(aesBuf) != len) {
+                throw new IOException("Unexpected end of file while reading AES buffer.");
+            }
+
+            is.close();
+
+            // Return AES encrypted data first, then encrypted AES key, then CP-ABE
+            // encrypted structure
+            res[0] = aesBuf;
+            res[1] = encryptedAesKey;
+            res[2] = cphKeyBuf;
+            return res;
         }
     }
 }
