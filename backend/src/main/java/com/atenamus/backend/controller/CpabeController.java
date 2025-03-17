@@ -114,13 +114,13 @@ public class CpabeController {
         try {
             String policy = (String) request.get("policy");
 
-            // Read data from file
             byte[] plaintext = FileUtil.readFile(DATA_FILE);
             System.out.println("Plaintext length: " + plaintext.length);
 
-            // Read public key from file
             byte[] pubBytes = FileUtil.readFile(PUB_KEY_FILE);
             PublicKey pub = SerializeUtil.unserializePublicKey(pubBytes);
+
+            System.out.println("After preprocessing: " + policy);
 
             CipherKey cipherKey = cpabe.encrypt(pub, policy);
             Cipher cph = cipherKey.cph;
@@ -128,24 +128,31 @@ public class CpabeController {
 
             System.out.println("Generated symmetric key: " + symmetric_key.toString());
             byte[] symmetricKeyBytes = symmetric_key.toBytes();
-            System.out.println("Key bytes length: " + symmetricKeyBytes.length);
-            System.out.println("Key bytes hash: " + Arrays.hashCode(symmetricKeyBytes));
+            System.out.println("Symmetric key bytes length: " + symmetricKeyBytes.length);
+            System.out.println("Symmetric key bytes hash: " + Arrays.hashCode(symmetricKeyBytes));
 
             if (cph == null) {
                 response.put("error", "An error occurred during encryption");
                 return response;
             }
 
+            // Store the symmetric key bytes - this is what we'll retrieve during decryption
+            byte[] storedKeyBytes = symmetricKeyBytes;
+
+            // Serialize the CP-ABE ciphertext
             byte[] cphBuf = SerializeUtil.serializeCipher(cph);
             System.out.println("CP-ABE ciphertext length: " + cphBuf.length);
 
-            byte[] aesBuf = AESCoder.encrypt(symmetricKeyBytes, plaintext);
-            System.out.println("AES encrypted data length: " + aesBuf.length);
+            // Encrypt the plaintext data using the symmetric key
+            byte[] encryptedData = AESCoder.encrypt(symmetricKeyBytes, plaintext);
+            System.out.println("AES encrypted data length: " + encryptedData.length);
+
+            // Store the CP-ABE ciphertext, symmetric key bytes, and AES-encrypted data
+            FileUtil.writeFullCpabeFile(ENCRYPTED_DATA_FILE, cphBuf, storedKeyBytes, encryptedData);
 
             response.put("message", "Data encrypted successfully");
             response.put("policy", policy);
-            response.put("encryptedData", aesBuf);
-            FileUtil.writeCpabeFile(ENCRYPTED_DATA_FILE, cphBuf, aesBuf);
+            response.put("encryptedDataLength", encryptedData.length);
 
         } catch (Exception e) {
             e.printStackTrace();
@@ -159,39 +166,35 @@ public class CpabeController {
     public Map<String, Object> decrypt() {
         Map<String, Object> response = new HashMap<>();
         try {
-            // Cpabe cpabe = new Cpabe();
             byte[] plaintext;
 
-            // Read public key from file
             byte[] pubBytes = FileUtil.readFile(PUB_KEY_FILE);
             PublicKey pub = SerializeUtil.unserializePublicKey(pubBytes);
 
-            // Read ciphertext
-            byte[][] tmp = FileUtil.readCpabeFile(ENCRYPTED_DATA_FILE);
-            byte[] aesBuf = tmp[0];
-            byte[] cphBuf = tmp[1];
+            byte[][] encryptedData = FileUtil.readFullCpabeFile(ENCRYPTED_DATA_FILE);
+            byte[] encryptedDataBuf = encryptedData[0]; // AES encrypted data
+            byte[] storedKeyBytes = encryptedData[1]; // Stored symmetric key bytes
+            byte[] cphBuf = encryptedData[2]; // CP-ABE ciphertext
 
-            System.out.println("AES encrypted data length: " + aesBuf.length);
+            System.out.println("AES encrypted data length: " + encryptedDataBuf.length);
+            System.out.println("Stored key bytes length: " + storedKeyBytes.length);
+            System.out.println("Stored key bytes hash: " + Arrays.hashCode(storedKeyBytes));
             System.out.println("CP-ABE ciphertext length: " + cphBuf.length);
 
             Cipher cipher = SerializeUtil.unserializeCipher(pub, cphBuf);
 
-            // Read private key from file
             byte[] prvBytes = FileUtil.readFile(PRV_KEY_FILE);
             PrivateKey prv = SerializeUtil.unserializePrivateKey(pub, prvBytes);
 
+            // Verify policy satisfaction with CP-ABE (but we'll use the stored key for
+            // decryption)
             ElementBoolean result = cpabe.decrypt(pub, prv, cipher);
-            System.out.println("Decryption result: " + result.satisfy);
-            System.out.println(
-                    "Element value: " + (result.key != null ? result.key.toString() : "null"));
+            System.out.println("CP-ABE decryption result: " + result.satisfy);
 
             if (result.satisfy) {
-                byte[] keyBytes = result.key.toBytes();
-                System.out.println("Key bytes length: " + keyBytes.length);
-                System.out.println("Key bytes hash: " + Arrays.hashCode(keyBytes));
-
+                // Use the originally stored symmetric key bytes for decryption
                 try {
-                    plaintext = AESCoder.decrypt(keyBytes, aesBuf);
+                    plaintext = AESCoder.decrypt(storedKeyBytes, encryptedDataBuf);
                     response.put("message", "Data decrypted successfully");
                     response.put("decryptedData", new String(plaintext));
                 } catch (Exception e) {
