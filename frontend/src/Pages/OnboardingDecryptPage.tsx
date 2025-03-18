@@ -87,7 +87,10 @@ export default function OnboardingDecryptPage() {
 
           <CardContent>
             {step === 0 ? (
-              <FileUpload onFileUpload={handleFileUpload} />
+              <FileUpload
+                onFileUpload={handleFileUpload}
+                forDecryption={true}
+              />
             ) : (
               <>
                 {!keyUploaded ? (

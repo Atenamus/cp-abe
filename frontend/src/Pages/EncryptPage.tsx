@@ -134,18 +134,36 @@ export default function EncryptPage() {
       if (response.ok) {
         const blob = await response.blob();
         const url = window.URL.createObjectURL(blob);
+
+        // Get the filename from the Content-Disposition header if available
+        const contentDisposition = response.headers.get("Content-Disposition");
+        let downloadFilename = file.name + ".cpabe";
+
+        if (contentDisposition) {
+          const filenameMatch =
+            contentDisposition.match(/filename="?([^"]+)"?/);
+          if (filenameMatch && filenameMatch[1]) {
+            downloadFilename = filenameMatch[1];
+          }
+        }
+
         const a = document.createElement("a");
         a.href = url;
-        a.download = "encrypted-file.cpabe";
+        a.download = downloadFilename;
         document.body.appendChild(a);
         a.click();
         a.remove();
         window.URL.revokeObjectURL(url);
 
-        console.log("Encryption successful!");
+        toast("Encryption successful", {
+          description: `File "${downloadFilename}" has been encrypted.`,
+        });
       } else {
         const errorText = await response.text();
         console.error("Encryption failed:", errorText);
+        toast("Encryption failed", {
+          description: errorText || "Unknown error occurred",
+        });
       }
     } catch (error) {
       toast("Encryption failed", {

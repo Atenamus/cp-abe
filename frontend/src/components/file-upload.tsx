@@ -7,9 +7,13 @@ import { UploadIcon } from "lucide-react";
 
 interface FileUploadProps {
   onFileUpload: (file: File) => void;
+  forDecryption?: boolean;
 }
 
-export function FileUpload({ onFileUpload }: FileUploadProps) {
+export function FileUpload({
+  onFileUpload,
+  forDecryption = false,
+}: FileUploadProps) {
   const [dragActive, setDragActive] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -46,6 +50,9 @@ export function FileUpload({ onFileUpload }: FileUploadProps) {
     inputRef.current?.click();
   };
 
+  // Use accept=".cpabe" for decryption and allow all file types for encryption
+  const acceptFileTypes = forDecryption ? ".cpabe" : "*/*";
+
   return (
     <Card
       className={`border-2 border-dashed p-8 text-center ${
@@ -67,13 +74,18 @@ export function FileUpload({ onFileUpload }: FileUploadProps) {
           <p className="text-sm text-muted-foreground">
             or click to browse your files
           </p>
+          {forDecryption && (
+            <p className="text-xs text-muted-foreground">
+              (Only .cpabe files are accepted for decryption)
+            </p>
+          )}
         </div>
         <input
           ref={inputRef}
           type="file"
           className="hidden"
           onChange={handleChange}
-          accept=".cpabe"
+          accept={acceptFileTypes}
         />
         <Button variant="outline" onClick={handleClick}>
           Select File

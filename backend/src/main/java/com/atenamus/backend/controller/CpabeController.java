@@ -44,8 +44,6 @@ public class CpabeController {
     private static final String PUB_KEY_FILE = "public_key.dat";
     private static final String MSK_KEY_FILE = "master_secret_key.dat";
     private static final String PRV_KEY_FILE = "private_key.dat";
-    // private static final String DATA_FILE = "data.txt";
-    // private static final String ENCRYPTED_DATA_FILE = "data.txt.cpabe";
 
     @Autowired
     private Cpabe cpabe;
@@ -82,7 +80,6 @@ public class CpabeController {
             response.put("message", "Setup complete! Public and master keys generated.");
 
         } catch (IOException e) {
-            // System.err.println("Error during CP-ABE setup: " + e.getMessage());
             response.put("error", "An error occurred during CP-ABE setup. Please try again.");
         }
 
@@ -124,8 +121,17 @@ public class CpabeController {
 
         Map<String, Object> response = new HashMap<>();
         try {
-
+            String originalFilename = file.getOriginalFilename();
             byte[] plaintext = file.getBytes(); // Read file contents
+
+            // Extract original file extension/type
+            String originalFileType = null;
+            if (originalFilename != null && originalFilename.contains(".")) {
+                originalFileType = originalFilename.substring(originalFilename.lastIndexOf('.') + 1);
+            }
+
+            System.out.println("Encrypting file: " + originalFilename + ", type: " +
+                    (originalFileType != null ? originalFileType : "unknown"));
 
             byte[] pubBytes = FileUtil.readFile(PUB_KEY_FILE);
             PublicKey pub = SerializeUtil.unserializePublicKey(pubBytes);
@@ -135,6 +141,8 @@ public class CpabeController {
 
             if (cph == null) {
                 response.put("error", "An error occurred during encryption");
+                return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                        .body("Failed to create cipher for encryption".getBytes());
             }
 
             Element symmetric_key = cipherKey.key;
@@ -146,13 +154,15 @@ public class CpabeController {
             byte[] encryptedData = AESCoder.encrypt(symmetricKeyBytes, plaintext);
 
             // Store the CP-ABE ciphertext, symmetric key bytes, and AES-encrypted data
-            String encryptedFileName = file.getOriginalFilename() + ".cpabe";
-            // Write the file to both local storage and return it in the response
-            FileUtil.writeFullCpabeFile(encryptedFileName, cphBuf, storedKeyBytes, encryptedData);
+            String encryptedFileName = originalFilename + ".cpabe";
+
+            // Write the file to storage with file type information
+            FileUtil.writeFullCpabeFile(encryptedFileName, cphBuf, storedKeyBytes, encryptedData, originalFileType);
 
             // Create a complete encrypted file to return in the response
             File tempFile = File.createTempFile("encrypted-", ".cpabe");
-            FileUtil.writeFullCpabeFile(tempFile.getAbsolutePath(), cphBuf, storedKeyBytes, encryptedData);
+            FileUtil.writeFullCpabeFile(tempFile.getAbsolutePath(), cphBuf, storedKeyBytes, encryptedData,
+                    originalFileType);
             byte[] fullEncryptedFile = Files.readAllBytes(tempFile.toPath());
             tempFile.delete(); // Clean up
 
@@ -201,9 +211,15 @@ public class CpabeController {
             byte[] storedKeyBytes = encryptedData[1]; // Stored symmetric key bytes
             byte[] cphBuf = encryptedData[2]; // CP-ABE ciphertext
 
+            // Check if file type information is available (index 3)
+            String originalFileType = null;
+            if (encryptedData.length > 3 && encryptedData[3] != null && encryptedData[3].length > 0) {
+                originalFileType = new String(encryptedData[3]);
+                System.out.println("Retrieved original file type: " + originalFileType);
+            }
+
             System.out.println("AES encrypted data length: " + encryptedDataBuf.length);
             System.out.println("Stored key bytes length: " + storedKeyBytes.length);
-            System.out.println("Stored key bytes hash: " + Arrays.hashCode(storedKeyBytes));
             System.out.println("CP-ABE ciphertext length: " + cphBuf.length);
 
             Cipher cipher = SerializeUtil.unserializeCipher(pub, cphBuf);
@@ -230,15 +246,25 @@ public class CpabeController {
 
                     // Prepare file response
                     HttpHeaders headers = new HttpHeaders();
-                    headers.setContentType(MediaType.APPLICATION_OCTET_STREAM);
-                    String outputFilename = encryptedFile.getOriginalFilename();
-                    if (outputFilename != null && outputFilename.endsWith(".cpabe")) {
-                        outputFilename = outputFilename.substring(0, outputFilename.lastIndexOf(".cpabe"));
-                    } else if (outputFilename == null) {
-                        outputFilename = "decrypted-file";
-                    }
-                    headers.setContentDispositionFormData("attachment", outputFilename);
 
+                    // Determine output filename and content type
+                    String outputFilename = FileUtil.getDecryptedFilename(encryptedFile.getOriginalFilename());
+
+                    // If we have original file type information, use it
+                    if (originalFileType != null && !originalFileType.isEmpty()) {
+                        // If the filename doesn't already have the extension, add it
+                        if (!outputFilename.toLowerCase().endsWith("." + originalFileType.toLowerCase())) {
+                            outputFilename = outputFilename + "." + originalFileType;
+                        }
+
+                        // Set content type based on file type
+                        headers.setContentType(MediaType.parseMediaType(
+                                FileUtil.getMimeType(outputFilename)));
+                    } else {
+                        headers.setContentType(MediaType.APPLICATION_OCTET_STREAM);
+                    }
+
+                    headers.setContentDispositionFormData("attachment", outputFilename);
                     return new ResponseEntity<>(plaintext, headers, HttpStatus.OK);
                 } catch (Exception e) {
                     System.err.println("AES decryption failed: " + e.getMessage());

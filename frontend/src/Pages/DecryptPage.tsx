@@ -46,9 +46,28 @@ export default function DecryptPage() {
       if (response.ok) {
         const blob = await response.blob();
         const url = window.URL.createObjectURL(blob);
+
+        // Extract original filename from the content disposition header if available
+        const contentDisposition = response.headers.get("content-disposition");
+        let filename = "decrypted-file";
+
+        if (contentDisposition) {
+          const filenameMatch =
+            contentDisposition.match(/filename="?([^"]+)"?/);
+          if (filenameMatch && filenameMatch[1]) {
+            filename = filenameMatch[1];
+          }
+        } else {
+          if (file.name.endsWith(".cpabe")) {
+            filename = file.name.slice(0, -6);
+          } else {
+            filename = file.name;
+          }
+        }
+
         const a = document.createElement("a");
         a.href = url;
-        a.download = "decrypted-file.txt";
+        a.download = filename;
         document.body.appendChild(a);
         a.click();
         a.remove();
@@ -97,7 +116,7 @@ export default function DecryptPage() {
 
         <CardContent>
           {step === 0 ? (
-            <FileUpload onFileUpload={handleFileUpload} />
+            <FileUpload onFileUpload={handleFileUpload} forDecryption={true} />
           ) : (
             <>
               {!keyUploaded ? (
