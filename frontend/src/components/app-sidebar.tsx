@@ -1,5 +1,5 @@
-import * as React from "react"
-import { GalleryVerticalEnd } from "lucide-react"
+import * as React from "react";
+import { GalleryVerticalEnd } from "lucide-react";
 
 import {
   Sidebar,
@@ -12,8 +12,8 @@ import {
   SidebarMenuSub,
   SidebarMenuSubButton,
   SidebarMenuSubItem,
-} from "@/components/ui/sidebar"
-import { useLocation } from "react-router";
+} from "@/components/ui/sidebar";
+import { Link, useLocation } from "react-router";
 
 const data = {
   navMain: [
@@ -40,14 +40,18 @@ const data = {
           title: "File Encryption",
           url: "/dashboard/files/encrypt",
         },
+        {
+          title: "File Decryption",
+          url: "/dashboard/files/decrypt",
+        },
       ],
     },
   ],
-}
+};
 
 export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   const location = useLocation();
-  
+
   return (
     <Sidebar variant="floating" {...props}>
       <SidebarHeader>
@@ -76,9 +80,11 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
                   <SidebarMenuSub className="ml-0 border-l-0 px-1.5">
                     {item.items.map((subItem) => (
                       <SidebarMenuSubItem key={subItem.title}>
-                        <SidebarMenuSubButton asChild isActive={location.pathname === subItem.url}
+                        <SidebarMenuSubButton
+                          asChild
+                          isActive={location.pathname === subItem.url}
                         >
-                          <a href={subItem.url}>{subItem.title}</a>
+                          <Link to={subItem.url}>{subItem.title}</Link>
                         </SidebarMenuSubButton>
                       </SidebarMenuSubItem>
                     ))}
@@ -90,5 +96,5 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
         </SidebarGroup>
       </SidebarContent>
     </Sidebar>
-  )
+  );
 }

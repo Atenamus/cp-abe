@@ -7,7 +7,7 @@ import { Label } from "@/components/ui/label";
 import { FileKey, Upload } from "lucide-react";
 
 interface KeyUploadProps {
-  onKeyUpload: (userData: { name: string; attributes: string[] }) => void;
+  onKeyUpload: (file: File) => void;
 }
 
 export function KeyUpload({ onKeyUpload }: KeyUploadProps) {
@@ -22,21 +22,11 @@ export function KeyUpload({ onKeyUpload }: KeyUploadProps) {
 
   const handleUpload = () => {
     if (!keyFile) return;
-
     setIsUploading(true);
-
-    // In a real app, we would read and validate the key file
-    // For demo purposes, we'll simulate reading attributes from the key
     setTimeout(() => {
-      // Simulate extracting user data from the key
-      const mockUserData = {
-        name: "John Doe",
-        attributes: ["HR", "Manager", "Finance"],
-      };
-
+      onKeyUpload(keyFile);
       setIsUploading(false);
-      onKeyUpload(mockUserData);
-    }, 1500);
+    }, 500);
   };
 
   return (
@@ -61,7 +51,7 @@ export function KeyUpload({ onKeyUpload }: KeyUploadProps) {
             id="key-file"
             type="file"
             onChange={handleFileChange}
-            accept=".txt,.key,.pem"
+            accept=".dat"
           />
         </div>
 

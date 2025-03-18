@@ -11,8 +11,6 @@ import {
 import { FileUpload } from "@/components/file-upload";
 import { KeyUpload } from "@/components/key-upload";
 import { DecryptionResult } from "@/components/decryption-result";
-import { ArrowLeft } from "lucide-react";
-import { Link } from "react-router";
 
 export default function DecryptPage() {
   const [step, setStep] = useState(0);
@@ -21,99 +19,110 @@ export default function DecryptPage() {
   const [decryptionSuccess, setDecryptionSuccess] = useState<boolean | null>(
     null
   );
-  const [currentUser, setCurrentUser] = useState({
-    name: "",
-    attributes: [] as string[],
-  });
 
   const handleFileUpload = (uploadedFile: File) => {
     setFile(uploadedFile);
     setStep(1);
   };
 
-  const handleKeyUpload = (userData: {
-    name: string;
-    attributes: string[];
-  }) => {
-    setCurrentUser(userData);
+  const handleKeyUpload = async (uploadedKey: File) => {
     setKeyUploaded(true);
 
-    // Simulate decryption attempt
-    // In a real app, this would check if the user's attributes satisfy the policy
-    const simulateDecryption = () => {
-      // For demo purposes, we'll randomly succeed or fail
-      const success = Math.random() > 0.5;
-      setDecryptionSuccess(success);
-    };
+    if (!file) {
+      console.error("No encrypted file selected.");
+      return;
+    }
 
-    setTimeout(simulateDecryption, 1500);
+    const formData = new FormData();
+    formData.append("file", file);
+    formData.append("key", uploadedKey);
+
+    try {
+      const response = await fetch("http://localhost:8080/api/cpabe/decrypt", {
+        method: "POST",
+        body: formData,
+      });
+
+      if (response.ok) {
+        const blob = await response.blob();
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = "decrypted-file.txt";
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        window.URL.revokeObjectURL(url);
+
+        setDecryptionSuccess(true);
+      } else {
+        const errorText = await response.text();
+        console.error("Decryption failed:", errorText);
+        setDecryptionSuccess(false);
+      }
+    } catch (error) {
+      console.error("Decryption failed:", error);
+      setDecryptionSuccess(false);
+    }
   };
 
-  const tryAsAnotherUser = () => {
+  const decryptAnotherFile = () => {
+    setFile(null);
+    setStep(0);
     setKeyUploaded(false);
     setDecryptionSuccess(null);
   };
 
   return (
-    <div className="container mx-auto px-4 py-12">
-      <div className="max-w-3xl mx-auto">
-        <div className="mb-8">
-          <Link
-            to="/dashboard"
-            className="inline-flex items-center text-sm text-muted-foreground hover:text-foreground"
-          >
-            <ArrowLeft className="mr-2 h-4 w-4" />
-            Back to Home
-          </Link>
-        </div>
+    <div className="max-w-7xl space-y-6 w-full mx-auto p-6">
+      <h1 className="text-3xl font-bold tracking-tight mb-8">Decrypt a File</h1>
 
-        <h1 className="text-3xl font-bold tracking-tight mb-8 text-center">
-          Decrypt a File
-        </h1>
+      <Card>
+        <CardHeader>
+          <CardTitle>
+            {step === 0
+              ? "Upload Encrypted File"
+              : keyUploaded && decryptionSuccess !== null
+              ? "Decryption Result"
+              : "Provide Your Private Key"}
+          </CardTitle>
+          <CardDescription>
+            {step === 0
+              ? "Select an encrypted file to decrypt"
+              : keyUploaded && decryptionSuccess !== null
+              ? "Here is the result of your decryption attempt"
+              : "Upload your private key to attempt decryption"}
+          </CardDescription>
+        </CardHeader>
 
-        <Card>
-          <CardHeader>
-            <CardTitle>
-              {step === 0
-                ? "Upload Encrypted File"
-                : "Provide Your Private Key"}
-            </CardTitle>
-            <CardDescription>
-              {step === 0
-                ? "Select an encrypted file to decrypt"
-                : "Upload your private key to attempt decryption"}
-            </CardDescription>
-          </CardHeader>
+        <CardContent>
+          {step === 0 ? (
+            <FileUpload onFileUpload={handleFileUpload} />
+          ) : (
+            <>
+              {!keyUploaded ? (
+                <KeyUpload onKeyUpload={handleKeyUpload} />
+              ) : (
+                <DecryptionResult
+                  success={decryptionSuccess}
+                  fileName={file?.name || "file"}
+                  // decryptedData={decryptedData}
+                  onDecryptAnotherFile={decryptAnotherFile}
+                />
+              )}
+            </>
+          )}
+        </CardContent>
 
-          <CardContent>
-            {step === 0 ? (
-              <FileUpload onFileUpload={handleFileUpload} />
-            ) : (
-              <>
-                {!keyUploaded ? (
-                  <KeyUpload onKeyUpload={handleKeyUpload} />
-                ) : (
-                  <DecryptionResult
-                    success={decryptionSuccess}
-                    fileName={file?.name || "file"}
-                    userData={currentUser}
-                    onTryAnother={tryAsAnotherUser}
-                  />
-                )}
-              </>
-            )}
-          </CardContent>
-
-          <CardFooter className="flex justify-between">
-            {step > 0 && !keyUploaded && (
-              <Button variant="outline" onClick={() => setStep(0)}>
-                Back
-              </Button>
-            )}
-            {step === 0 && <div />}
-          </CardFooter>
-        </Card>
-      </div>
+        <CardFooter className="flex justify-between">
+          {step > 0 && !keyUploaded && (
+            <Button variant="outline" onClick={() => setStep(0)}>
+              Back
+            </Button>
+          )}
+          {step === 0 && <div />}
+        </CardFooter>
+      </Card>
     </div>
   );
 }

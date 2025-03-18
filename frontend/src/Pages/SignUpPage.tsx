@@ -9,7 +9,7 @@ import {
 import { ArrowLeft } from "lucide-react";
 import { Link, useNavigate } from "react-router";
 
-export default function LoginPage() {
+export default function SignUpPage() {
   const navigate = useNavigate();
 
   const handleSignup = (data: {

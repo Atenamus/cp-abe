@@ -73,6 +73,7 @@ export function FileUpload({ onFileUpload }: FileUploadProps) {
           type="file"
           className="hidden"
           onChange={handleChange}
+          accept=".cpabe"
         />
         <Button variant="outline" onClick={handleClick}>
           Select File

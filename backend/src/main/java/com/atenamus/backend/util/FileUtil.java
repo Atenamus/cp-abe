@@ -1,5 +1,6 @@
 package com.atenamus.backend.util;
 
+import java.io.ByteArrayInputStream;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
@@ -163,4 +164,67 @@ public class FileUtil {
             return res;
         }
     }
+
+    public static byte[][] readFullCpabeFile(byte[] encryptedData) throws IOException {
+        ByteArrayInputStream is = new ByteArrayInputStream(encryptedData);
+        int i, len;
+        byte[][] res = new byte[3][];
+        byte[] cphKeyBuf, encryptedAesKey, aesBuf;
+
+        /* Read CP-ABE encrypted structure length */
+        len = 0;
+        for (i = 3; i >= 0; i--) {
+            int readByte = is.read();
+            if (readByte == -1) {
+                throw new IOException("Unexpected end of file while reading CP-ABE structure buffer length.");
+            }
+            len |= readByte << (i * 8);
+        }
+        cphKeyBuf = new byte[len];
+
+        /* Read CP-ABE encrypted structure */
+        if (is.read(cphKeyBuf) != len) {
+            throw new IOException("Unexpected end of file while reading CP-ABE structure buffer.");
+        }
+
+        /* Read encrypted AES key length */
+        len = 0;
+        for (i = 3; i >= 0; i--) {
+            int readByte = is.read();
+            if (readByte == -1) {
+                throw new IOException("Unexpected end of file while reading encrypted AES key buffer length.");
+            }
+            len |= readByte << (i * 8);
+        }
+        encryptedAesKey = new byte[len];
+
+        /* Read encrypted AES key */
+        if (is.read(encryptedAesKey) != len) {
+            throw new IOException("Unexpected end of file while reading encrypted AES key buffer.");
+        }
+
+        /* Read AES-encrypted data length */
+        len = 0;
+        for (i = 3; i >= 0; i--) {
+            int readByte = is.read();
+            if (readByte == -1) {
+                throw new IOException("Unexpected end of file while reading AES buffer length.");
+            }
+            len |= readByte << (i * 8);
+        }
+        aesBuf = new byte[len];
+
+        /* Read AES-encrypted data */
+        if (is.read(aesBuf) != len) {
+            throw new IOException("Unexpected end of file while reading AES buffer.");
+        }
+
+        is.close();
+
+        res[0] = aesBuf;
+        res[1] = encryptedAesKey;
+        res[2] = cphKeyBuf;
+        return res;
+    }
+
 }
