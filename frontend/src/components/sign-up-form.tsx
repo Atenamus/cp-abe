@@ -1,6 +1,6 @@
 import type React from "react";
-
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -12,9 +12,11 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { HelpCircle } from "lucide-react";
+import { auth } from "@/lib/auth";
+import { toast } from "sonner";
 
 interface SignupFormProps {
-  onSubmit: (data: {
+  onSubmit?: (data: {
     fullName: string;
     email: string;
     password: string;
@@ -23,6 +25,8 @@ interface SignupFormProps {
 }
 
 export function SignUpForm({ onSubmit }: SignupFormProps) {
+  const navigate = useNavigate();
+  const [isLoading, setIsLoading] = useState(false);
   const [formData, setFormData] = useState({
     fullName: "",
     email: "",
@@ -70,7 +74,7 @@ export function SignUpForm({ onSubmit }: SignupFormProps) {
     );
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
     if (formData.password !== formData.confirmPassword) {
@@ -82,12 +86,29 @@ export function SignUpForm({ onSubmit }: SignupFormProps) {
       .filter((attr) => attr.checked)
       .map((attr) => attr.id);
 
-    onSubmit({
-      fullName: formData.fullName,
-      email: formData.email,
-      password: formData.password,
-      attributes: selectedAttributes,
-    });
+    setIsLoading(true);
+
+    try {
+      const signupData = {
+        fullName: formData.fullName,
+        email: formData.email,
+        password: formData.password,
+        attributes: selectedAttributes,
+      };
+
+      await auth.signUp(signupData);
+      toast.success("Successfully signed up!");
+
+      if (onSubmit) {
+        onSubmit(signupData);
+      } else {
+        navigate("/dashboard");
+      }
+    } catch (error) {
+      toast.error("Registration failed. Please try again.");
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -204,8 +225,8 @@ export function SignUpForm({ onSubmit }: SignupFormProps) {
         </TooltipProvider>
       </div>
 
-      <Button type="submit" className="w-full">
-        Sign Up & Continue
+      <Button type="submit" className="w-full" disabled={isLoading}>
+        {isLoading ? "Signing up..." : "Sign Up & Continue"}
       </Button>
     </form>
   );

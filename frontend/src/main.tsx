@@ -3,6 +3,7 @@ import { createRoot } from "react-dom/client";
 import "./index.css";
 import App from "./App.tsx";
 import { BrowserRouter, Routes, Route, Outlet } from "react-router-dom";
+import { PrivateRoute } from "./components/private-route";
 import CreatePolicyPage from "./Pages/CreatePolicyPage.tsx";
 import DashboardPage from "./Pages/DashboardPage.tsx";
 import FileManagementPage from "./Pages/FileManagementPage.tsx";
@@ -37,7 +38,14 @@ createRoot(document.getElementById("root")!).render(
             />
             <Route path="decrypt" element={<OnboardingDecryptPage />} />
           </Route>
-          <Route path="/dashboard" element={<DashboardLayout />}>
+          <Route
+            path="/dashboard"
+            element={
+              <PrivateRoute>
+                <DashboardLayout />
+              </PrivateRoute>
+            }
+          >
             <Route index element={<DashboardPage />} />
             <Route path="files" element={<FileManagementPage />} />
             <Route path="files/encrypt" element={<EncryptPage />} />
