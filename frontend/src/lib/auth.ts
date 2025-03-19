@@ -49,15 +49,37 @@ export const auth = {
         return result;
     },
 
+    async validateToken(token: string) {
+        try {
+            const response = await fetch(`${API_URL}/validate`, {
+                headers: {
+                    'Authorization': `Bearer ${token}`
+                }
+            });
+            return response.ok;
+        } catch {
+            return false;
+        }
+    },
+
     getToken() {
         return localStorage.getItem('token');
     },
 
-    isAuthenticated() {
-        return !!this.getToken();
+    async isAuthenticated() {
+        const token = this.getToken();
+        if (!token) return false;
+        
+        const isValid = await this.validateToken(token);
+        if (!isValid) {
+            this.logout();
+            return false;
+        }
+        return true;
     },
 
     logout() {
         localStorage.removeItem('token');
-    },
+        window.location.href = '/sign-in';
+    }
 };
