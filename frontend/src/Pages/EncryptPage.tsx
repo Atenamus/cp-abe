@@ -42,7 +42,7 @@ export default function EncryptPage() {
     {
       id: "pol-2",
       name: "Marketing Documents",
-      policy: "role_employee and department_marketing",
+      policy: "role_admin and department_marketing",
     },
     {
       id: "pol-3",

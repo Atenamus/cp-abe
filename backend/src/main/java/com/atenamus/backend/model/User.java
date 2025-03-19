@@ -4,6 +4,7 @@ import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+import java.util.List;
 
 @Data
 @Entity
@@ -20,4 +21,9 @@ public class User {
 
     private String password;
     private String fullName;
+
+    @ElementCollection
+    @CollectionTable(name = "user_attributes", joinColumns = @JoinColumn(name = "user_id"))
+    @Column(name = "attribute")
+    private List<String> attributes;
 }

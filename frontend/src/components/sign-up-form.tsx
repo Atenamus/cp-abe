@@ -37,12 +37,12 @@ export function SignUpForm({ onSubmit }: SignupFormProps) {
   const [attributes, setAttributes] = useState<
     { id: string; label: string; checked: boolean }[]
   >([
-    { id: "admin", label: "Admin", checked: false },
-    { id: "hr", label: "HR", checked: false },
-    { id: "manager", label: "Manager", checked: false },
-    { id: "finance", label: "Finance", checked: false },
-    { id: "engineering", label: "Engineering", checked: false },
-    { id: "marketing", label: "Marketing", checked: false },
+    { id: "role_admin", label: "Admin", checked: false },
+    { id: "department_hr", label: "HR", checked: false },
+    { id: "role_manager", label: "Manager", checked: false },
+    { id: "department_finance", label: "Finance", checked: false },
+    { id: "department_engineering", label: "Engineering", checked: false },
+    { id: "department_marketing", label: "Marketing", checked: false },
   ]);
 
   const [passwordError, setPasswordError] = useState("");
