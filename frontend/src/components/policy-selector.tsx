@@ -19,36 +19,43 @@ import {
 import { HelpCircle } from "lucide-react";
 
 interface PolicySelectorProps {
-  onPolicySet: () => void;
+  value?: string;
+  onChange?: (value: string) => void;
+  disabled?: boolean;
 }
 
-export function PolicySelector({ onPolicySet }: PolicySelectorProps) {
+export function PolicySelector({
+  value,
+  onChange,
+  disabled = false,
+}: PolicySelectorProps) {
   const [policyType, setPolicyType] = useState("predefined");
   const [selectedPolicy, setSelectedPolicy] = useState("");
   const [customPolicy, setCustomPolicy] = useState("");
-  const [isEncrypting, setIsEncrypting] = useState(false);
 
-  const handleEncrypt = () => {
-    setIsEncrypting(true);
-
-    // Simulate encryption process
-    setTimeout(() => {
-      setIsEncrypting(false);
-      onPolicySet();
-    }, 2000);
+  const handlePolicyChange = (newValue: string) => {
+    if (policyType === "predefined") {
+      const policy =
+        predefinedPolicies.find((p) => p.id === newValue)?.value || "";
+      setSelectedPolicy(newValue);
+      onChange?.(policy);
+    } else {
+      setCustomPolicy(newValue);
+      onChange?.(newValue);
+    }
   };
 
   const predefinedPolicies = [
-    { id: "hr_only", label: "Only HR can access", value: "department:HR" },
+    { id: "hr_only", label: "Only HR can access", value: "department_HR" },
     {
       id: "managers_admins",
       label: "Managers OR Admins can access",
-      value: "role:Manager OR role:Admin",
+      value: "role_manager OR role_admin",
     },
     {
       id: "engineering_finance",
       label: "Engineering AND Finance can access",
-      value: "department:Engineering AND department:Finance",
+      value: "department_engineering AND department_finance",
     },
     {
       id: "senior_staff",
@@ -85,6 +92,7 @@ export function PolicySelector({ onPolicySet }: PolicySelectorProps) {
           value={policyType}
           onValueChange={setPolicyType}
           className="flex flex-col space-y-1"
+          disabled={disabled}
         >
           <div className="flex items-center space-x-2">
             <RadioGroupItem value="predefined" id="predefined" />
@@ -100,7 +108,11 @@ export function PolicySelector({ onPolicySet }: PolicySelectorProps) {
       {policyType === "predefined" ? (
         <div className="space-y-2">
           <Label htmlFor="policy">Select Policy</Label>
-          <Select value={selectedPolicy} onValueChange={setSelectedPolicy}>
+          <Select
+            value={selectedPolicy}
+            onValueChange={handlePolicyChange}
+            disabled={disabled}
+          >
             <SelectTrigger id="policy">
               <SelectValue placeholder="Select a policy" />
             </SelectTrigger>
@@ -129,7 +141,8 @@ export function PolicySelector({ onPolicySet }: PolicySelectorProps) {
             id="custom-policy"
             placeholder="Example: (role:Admin OR department:HR) AND experience:2+"
             value={customPolicy}
-            onChange={(e) => setCustomPolicy(e.target.value)}
+            onChange={(e) => handlePolicyChange(e.target.value)}
+            disabled={disabled}
           />
           <p className="text-xs text-muted-foreground">
             Use attribute:value format with AND, OR operators. Parentheses can
@@ -137,18 +150,6 @@ export function PolicySelector({ onPolicySet }: PolicySelectorProps) {
           </p>
         </div>
       )}
-
-      <Button
-        onClick={handleEncrypt}
-        disabled={
-          (policyType === "predefined" && !selectedPolicy) ||
-          (policyType === "custom" && !customPolicy) ||
-          isEncrypting
-        }
-        className="w-full"
-      >
-        {isEncrypting ? "Encrypting..." : "Encrypt File with Policy"}
-      </Button>
     </div>
   );
 }

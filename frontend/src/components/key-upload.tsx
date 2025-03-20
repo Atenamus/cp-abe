@@ -1,32 +1,28 @@
 import type React from "react";
-
-import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { FileKey, Upload } from "lucide-react";
+import { FileKey, KeyRound } from "lucide-react";
 
 interface KeyUploadProps {
+  file?: File | null;
   onKeyUpload: (file: File) => void;
+  onFileSelect?: (file: File | null) => void;
+  disabled?: boolean;
 }
 
-export function KeyUpload({ onKeyUpload }: KeyUploadProps) {
-  const [keyFile, setKeyFile] = useState<File | null>(null);
-  const [isUploading, setIsUploading] = useState(false);
-
+export function KeyUpload({
+  file,
+  onKeyUpload,
+  onFileSelect,
+  disabled = false,
+}: KeyUploadProps) {
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
-      setKeyFile(e.target.files[0]);
+      const selectedFile = e.target.files[0];
+      onFileSelect?.(selectedFile);
+      onKeyUpload(selectedFile);
     }
-  };
-
-  const handleUpload = () => {
-    if (!keyFile) return;
-    setIsUploading(true);
-    setTimeout(() => {
-      onKeyUpload(keyFile);
-      setIsUploading(false);
-    }, 500);
   };
 
   return (
@@ -34,7 +30,7 @@ export function KeyUpload({ onKeyUpload }: KeyUploadProps) {
       <div className="text-center space-y-2">
         <div className="flex justify-center">
           <div className="rounded-full bg-primary/10 p-3">
-            <FileKey className="h-6 w-6 text-primary" />
+            <KeyRound className="h-6 w-6 text-primary" />
           </div>
         </div>
         <h3 className="text-lg font-medium">Upload Your Private Key</h3>
@@ -44,41 +40,42 @@ export function KeyUpload({ onKeyUpload }: KeyUploadProps) {
         </p>
       </div>
 
-      <div className="space-y-4">
-        <div className="space-y-2">
-          <Label htmlFor="key-file">Select Your Private Key File</Label>
-          <Input
-            id="key-file"
-            type="file"
-            onChange={handleFileChange}
-            accept=".dat"
-          />
-        </div>
-
-        {keyFile && (
-          <div className="p-3 bg-muted rounded-md">
-            <div className="flex items-center">
-              <FileKey className="h-4 w-4 mr-2" />
-              <span className="text-sm font-medium">{keyFile.name}</span>
+      {file ? (
+        <div className="space-y-4">
+          <div className="p-4 bg-muted/50 rounded-lg border flex items-center justify-between">
+            <div className="flex items-center space-x-3">
+              <FileKey className="h-5 w-5 text-primary" />
+              <div className="space-y-1">
+                <p className="text-sm font-medium">{file.name}</p>
+                <p className="text-xs text-muted-foreground">
+                  {(file.size / 1024).toFixed(1)} KB
+                </p>
+              </div>
             </div>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => onFileSelect?.(null)}
+              disabled={disabled}
+            >
+              Change
+            </Button>
           </div>
-        )}
-
-        <Button
-          onClick={handleUpload}
-          disabled={!keyFile || isUploading}
-          className="w-full"
-        >
-          {isUploading ? (
-            <>Validating Key...</>
-          ) : (
-            <>
-              <Upload className="mr-2 h-4 w-4" />
-              Upload Key & Attempt Decryption
-            </>
-          )}
-        </Button>
-      </div>
+        </div>
+      ) : (
+        <div className="space-y-4">
+          <div className="space-y-2">
+            <Label htmlFor="key-file">Select Your Private Key File</Label>
+            <Input
+              id="key-file"
+              type="file"
+              onChange={handleFileChange}
+              accept=".dat"
+              disabled={disabled}
+            />
+          </div>
+        </div>
+      )}
     </div>
   );
 }

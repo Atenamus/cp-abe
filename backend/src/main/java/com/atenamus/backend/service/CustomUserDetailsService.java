@@ -1,6 +1,6 @@
 package com.atenamus.backend.service;
 
-import com.atenamus.backend.model.User;
+import com.atenamus.backend.models.User;
 import com.atenamus.backend.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.userdetails.UserDetails;

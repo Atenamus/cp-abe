@@ -1,7 +1,8 @@
 package com.atenamus.backend.repository;
 
-import com.atenamus.backend.model.User;
 import org.springframework.data.jpa.repository.JpaRepository;
+
+import com.atenamus.backend.models.User;
 
 import java.util.Optional;
 

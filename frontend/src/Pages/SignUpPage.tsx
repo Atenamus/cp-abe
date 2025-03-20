@@ -20,7 +20,7 @@ export default function SignUpPage() {
   }) => {
     // In a real app, we would store the user data in state management or send it to the server
     // For now, we'll just navigate to the key generation page
-    navigate("/onboarding/get-key");
+    navigate("/dashboard");
   };
 
   return (

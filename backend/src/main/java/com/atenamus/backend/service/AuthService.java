@@ -2,11 +2,11 @@ package com.atenamus.backend.service;
 
 import com.atenamus.backend.dto.SignInRequest;
 import com.atenamus.backend.dto.SignUpRequest;
-import com.atenamus.backend.model.User;
 import com.atenamus.backend.repository.UserRepository;
 import com.atenamus.backend.security.JwtUtil;
 import com.atenamus.backend.Cpabe;
 import com.atenamus.backend.models.PublicKey;
+import com.atenamus.backend.models.User;
 import com.atenamus.backend.models.MasterSecretKey;
 import com.atenamus.backend.models.PrivateKey;
 import com.atenamus.backend.util.SerializeUtil;

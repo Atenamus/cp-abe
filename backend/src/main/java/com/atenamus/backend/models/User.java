@@ -1,4 +1,4 @@
-package com.atenamus.backend.model;
+package com.atenamus.backend.models;
 
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
