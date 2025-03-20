@@ -16,7 +16,6 @@ import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { ApiClient } from "@/lib/api-client";
 
-// Extend ApiClient response types
 type ApiResponse<T> = {
   data?: T;
   error?: string;
@@ -36,13 +35,13 @@ type KeyData = {
 };
 
 const attributeOptions = [
-  { id: "department:HR", label: "HR Department" },
-  { id: "department:Engineering", label: "Engineering Department" },
-  { id: "department:Finance", label: "Finance Department" },
-  { id: "role:Admin", label: "Admin Role" },
-  { id: "role:Manager", label: "Manager Role" },
-  { id: "experience:2+", label: "2+ Years Experience" },
-  { id: "experience:5+", label: "5+ Years Experience" },
+  { id: "department_HR", label: "HR Department" },
+  { id: "department_Engineering", label: "Engineering Department" },
+  { id: "department_Finance", label: "Finance Department" },
+  { id: "role_Admin", label: "Admin Role" },
+  { id: "role_Manager", label: "Manager Role" },
+  { id: "experience_gt_2", label: "2+ Years Experience" },
+  { id: "experience_gt_5", label: "5+ Years Experience" },
 ];
 
 export default function KeyManagementPage() {
@@ -92,27 +91,28 @@ export default function KeyManagementPage() {
 
     setIsGenerating(true);
     try {
-      const result = (await ApiClient.generateKey(
-        selectedAttributes
-      )) as ApiResponse<KeyData>;
-      if (result.error) {
-        throw new Error(result.error);
+      const response = await fetch("http://localhost:8080/api/cpabe/keygen", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${localStorage.getItem("token")}`,
+        },
+        body: JSON.stringify({ attributes: selectedAttributes }),
+      });
+
+      if (!response.ok) {
+        throw new Error(await response.text());
       }
 
-      if (result.data) {
-        // Download the key file
-        const blob = new Blob([new Uint8Array(result.data.keyData)], {
-          type: "application/octet-stream",
-        });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement("a");
-        a.href = url;
-        a.download = `private_key_${new Date().getTime()}.dat`;
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        URL.revokeObjectURL(url);
-      }
+      const blob = await response.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `private_key_${new Date().getTime()}.dat`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
 
       // Update the keys list
       await fetchKeys();

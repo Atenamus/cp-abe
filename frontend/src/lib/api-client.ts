@@ -103,7 +103,7 @@ export class ApiClient {
     }
 
     static async generateKey(attributes: string[]) {
-        return this.post('/cpabe/keys/generate', { attributes });
+        return this.post('/cpabe/keygen', { attributes });
     }
 
     static async deleteKey(keyId: string) {

@@ -45,7 +45,6 @@ public class CpabeController {
 
     private static final String PUB_KEY_FILE = "public_key.dat";
     private static final String MSK_KEY_FILE = "master_secret_key.dat";
-    private static final String PRV_KEY_FILE = "private_key.dat";
 
     @Autowired
     private Cpabe cpabe;
@@ -97,10 +96,26 @@ public class CpabeController {
     }
 
     @PostMapping("/keygen")
-    public Map<String, Object> keygen(@RequestBody Map<String, Object> request) {
-        Map<String, Object> response = new HashMap<>();
-
+    public ResponseEntity<byte[]> keygen(@RequestBody Map<String, Object> request) {
+        File tempFile = null;
         try {
+            // Validate input
+            @SuppressWarnings("unchecked")
+            List<String> attributesList = (List<String>) request.get("attributes");
+            if (attributesList == null || attributesList.isEmpty()) {
+                return ResponseEntity.badRequest()
+                        .body("Attributes list cannot be empty".getBytes());
+            }
+
+            String[] attributes = attributesList.toArray(new String[0]);
+            // Validate each attribute
+            for (String attr : attributes) {
+                if (attr == null || attr.trim().isEmpty()) {
+                    return ResponseEntity.badRequest()
+                            .body("Invalid attribute found".getBytes());
+                }
+            }
+
             // Check for keys and generate if missing
             boolean pubKeyExists = Files.exists(Paths.get(PUB_KEY_FILE));
             boolean mskExists = Files.exists(Paths.get(MSK_KEY_FILE));
@@ -109,8 +124,7 @@ public class CpabeController {
                 keyInitService.initializeKeys();
             }
 
-            @SuppressWarnings("unchecked")
-            String[] attributes = ((List<String>) request.get("attributes")).toArray(new String[0]);
+            System.out.println("Generating keys for attributes: " + Arrays.toString(attributes));
 
             byte[] pubBytes = FileUtil.readFile(PUB_KEY_FILE);
             PublicKey pub = SerializeUtil.unserializePublicKey(pubBytes);
@@ -119,18 +133,35 @@ public class CpabeController {
             MasterSecretKey msk = SerializeUtil.unserializeMasterSecretKey(pub, mskBytes);
 
             PrivateKey prv = cpabe.keygen(pub, msk, attributes);
-
             byte[] prvBytes = SerializeUtil.serializePrivateKey(prv);
-            FileUtil.writeFile(PRV_KEY_FILE, prvBytes);
 
-            response.put("message", "Private key generated successfully.");
-            response.put("attributes", attributes);
+            // Write to temp file with better error handling
+            tempFile = File.createTempFile("private_key", ".dat");
+            FileUtil.writeFile(tempFile.getAbsolutePath(), prvBytes);
+            byte[] privateKeyBytes = Files.readAllBytes(tempFile.toPath());
+
+            String privateKeyName = "private_key.dat";
+
+            HttpHeaders headers = new HttpHeaders();
+            headers.setContentType(MediaType.APPLICATION_OCTET_STREAM);
+            headers.setContentDispositionFormData("attachment", privateKeyName);
+            // Add security headers
+            headers.add("Cache-Control", "no-cache, no-store, must-revalidate");
+            headers.add("Pragma", "no-cache");
+            headers.add("Expires", "0");
+            headers.add("X-Content-Type-Options", "nosniff");
+            System.out.println("Private key generated successfully: " + privateKeyName);
+            return new ResponseEntity<>(privateKeyBytes, headers, HttpStatus.OK);
         } catch (IOException | NoSuchAlgorithmException e) {
-            response.put("error",
-                    "An error occurred during private key generation: " + e.getMessage());
+            e.printStackTrace();
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(("Key Generation failed: " + e.getMessage()).getBytes());
+        } finally {
+            // Clean up temp file in all cases
+            if (tempFile != null && tempFile.exists()) {
+                tempFile.delete();
+            }
         }
-
-        return response;
     }
 
     @PostMapping("/encrypt")
@@ -200,7 +231,7 @@ public class CpabeController {
 
             return new ResponseEntity<>(fullEncryptedFile, headers, HttpStatus.OK);
         } catch (Exception e) {
-            // e.printStackTrace();
+            e.printStackTrace();
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body(("Encryption failed: " + e.getMessage()).getBytes());
         }
@@ -313,7 +344,7 @@ public class CpabeController {
                 return ResponseEntity.status(HttpStatus.FORBIDDEN).body("Policy not satisfied for decryption");
             }
         } catch (Exception e) {
-            // e.printStackTrace();
+            e.printStackTrace();
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body("Error during decryption: " + e.getMessage());
         }

@@ -58,6 +58,7 @@
 
 ## Change Log
 
+- [x] Key Management: Private Key Download from frontend
 - [x] Authentication: JWT based auth with login and register endpoints
 - [x] 17/03/2025: Implement Decrypt API endpoint: Create endpoint for decrypting files using private keys.
 - [x] 16/03/2025 (Tushar Agrawal): Created basic onboarding flow ui

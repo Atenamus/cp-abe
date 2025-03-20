@@ -77,7 +77,7 @@ export function DecryptionResult({
           )}
         </div>
       ) : (
-        <div className="flex flex-col items-center justify-center py-4 space-y-4">
+        <div className="max-w-6xl flex flex-col items-center justify-center py-12 space-y-4">
           <div className="rounded-full bg-destructive/10 p-3">
             <ShieldAlert className="h-6 w-6 text-destructive" />
           </div>
@@ -92,13 +92,13 @@ export function DecryptionResult({
             </p>
           </div>
 
-          <Alert variant="destructive" className="mt-4">
+          {/* <Alert variant="destructive" className="mt-4">
             <AlertTitle>Permission Error</AlertTitle>
             <AlertDescription>
               The file requires attributes that are not present in your private
               key.
             </AlertDescription>
-          </Alert>
+          </Alert> */}
 
           <Button
             variant="outline"
