@@ -122,6 +122,7 @@ public class CpabeController {
         Map<String, Object> response = new HashMap<>();
         try {
             String originalFilename = file.getOriginalFilename();
+            System.out.println("Received file: " + originalFilename + ", size: " + file.getSize());
             byte[] plaintext = file.getBytes(); // Read file contents
 
             // Extract original file extension/type

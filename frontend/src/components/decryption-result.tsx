@@ -1,15 +1,20 @@
 import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { CheckCircle, ShieldAlert } from "lucide-react";
+import { CheckCircle, Download, ShieldAlert, FileIcon } from "lucide-react";
 
 interface DecryptionResultProps {
-  success: boolean | null;
-  fileName: string;
-  onDecryptAnotherFile: () => void;
+  success?: boolean | null;
+  decryptedFile?: Blob;
+  originalFileName?: string;
+  onReset?: () => void;
+  onDecryptAnotherFile?: () => void;
 }
 
 export function DecryptionResult({
   success,
+  decryptedFile,
+  originalFileName,
+  onReset,
   onDecryptAnotherFile,
 }: DecryptionResultProps) {
   if (success === null) {
@@ -39,10 +44,53 @@ export function DecryptionResult({
             </p>
           </div>
 
-          {/* <Button className="mt-4">
-            <Download className="mr-2 h-4 w-4" />
-            Download Decrypted File
-          </Button> */}
+          {decryptedFile && (
+            <>
+              <div className="w-full max-w-sm p-4 border rounded-md bg-muted/50">
+                <div className="flex items-center space-x-3 mb-3">
+                  <FileIcon className="h-5 w-5 text-primary" />
+                  <div className="text-sm">
+                    <div className="font-medium">{originalFileName}</div>
+                  </div>
+                </div>
+                <div className="text-sm">
+                  <div>
+                    <span className="font-medium">Decrypted on:</span>{" "}
+                    {new Date().toLocaleString()}
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex flex-col sm:flex-row gap-4 w-full max-w-sm">
+                <Button
+                  className="flex-1"
+                  onClick={() => {
+                    if (!decryptedFile) return;
+
+                    // Ensure we have valid blob data before creating the URL
+                    const blob = new Blob([decryptedFile], {
+                      type: "application/octet-stream",
+                    });
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement("a");
+                    a.href = url;
+                    a.download = originalFileName || "decrypted_file";
+                    document.body.appendChild(a);
+                    a.click();
+                    document.body.removeChild(a);
+                    URL.revokeObjectURL(url);
+                  }}
+                >
+                  <Download className="mr-2 h-4 w-4" />
+                  Download Decrypted File
+                </Button>
+
+                <Button variant="outline" className="flex-1" onClick={onReset}>
+                  Decrypt Another File
+                </Button>
+              </div>
+            </>
+          )}
         </div>
       ) : (
         <div className="flex flex-col items-center justify-center py-4 space-y-4">
@@ -67,16 +115,16 @@ export function DecryptionResult({
               key.
             </AlertDescription>
           </Alert>
+
+          <Button
+            variant="outline"
+            onClick={onDecryptAnotherFile}
+            className="w-full max-w-sm"
+          >
+            Try Different Key
+          </Button>
         </div>
       )}
-
-      <Button
-        variant="outline"
-        onClick={onDecryptAnotherFile}
-        className="w-full"
-      >
-        Decrypt Another File
-      </Button>
     </div>
   );
 }
