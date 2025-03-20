@@ -4,20 +4,22 @@ import { CheckCircle, Download, ShieldAlert, FileIcon } from "lucide-react";
 
 interface DecryptionResultProps {
   success?: boolean | null;
-  decryptedFile?: Blob;
+  decryptedFileUrl?: String;
   originalFileName?: string;
   onReset?: () => void;
-  onDecryptAnotherFile?: () => void;
+  handleDownload?: () => void;
 }
 
 export function DecryptionResult({
   success,
-  decryptedFile,
+  decryptedFileUrl,
   originalFileName,
   onReset,
-  onDecryptAnotherFile,
+  handleDownload,
 }: DecryptionResultProps) {
   if (success === null) {
+    console.log("Decrypted File", decryptedFileUrl);
+
     return (
       <div className="flex flex-col items-center justify-center py-6 space-y-4">
         <div className="h-12 w-12 rounded-full border-4 border-primary border-t-transparent animate-spin" />
@@ -44,7 +46,7 @@ export function DecryptionResult({
             </p>
           </div>
 
-          {decryptedFile && (
+          {decryptedFileUrl && (
             <>
               <div className="w-full max-w-sm p-4 border rounded-md bg-muted/50">
                 <div className="flex items-center space-x-3 mb-3">
@@ -62,25 +64,7 @@ export function DecryptionResult({
               </div>
 
               <div className="flex flex-col sm:flex-row gap-4 w-full max-w-sm">
-                <Button
-                  className="flex-1"
-                  onClick={() => {
-                    if (!decryptedFile) return;
-
-                    // Ensure we have valid blob data before creating the URL
-                    const blob = new Blob([decryptedFile], {
-                      type: "application/octet-stream",
-                    });
-                    const url = URL.createObjectURL(blob);
-                    const a = document.createElement("a");
-                    a.href = url;
-                    a.download = originalFileName || "decrypted_file";
-                    document.body.appendChild(a);
-                    a.click();
-                    document.body.removeChild(a);
-                    URL.revokeObjectURL(url);
-                  }}
-                >
+                <Button className="flex-1" onClick={handleDownload}>
                   <Download className="mr-2 h-4 w-4" />
                   Download Decrypted File
                 </Button>
@@ -118,7 +102,7 @@ export function DecryptionResult({
 
           <Button
             variant="outline"
-            onClick={onDecryptAnotherFile}
+            onClick={onReset}
             className="w-full max-w-sm"
           >
             Try Different Key

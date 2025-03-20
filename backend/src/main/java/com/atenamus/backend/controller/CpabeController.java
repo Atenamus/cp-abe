@@ -23,18 +23,20 @@ import com.atenamus.backend.models.ElementBoolean;
 import com.atenamus.backend.models.MasterSecretKey;
 import com.atenamus.backend.models.PrivateKey;
 import com.atenamus.backend.models.PublicKey;
+import com.atenamus.backend.service.KeyInitializationService;
 import com.atenamus.backend.util.AESCoder;
 import com.atenamus.backend.util.FileUtil;
 import com.atenamus.backend.util.SerializeUtil;
 import it.unisa.dia.gas.jpbc.Element;
 import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Paths;
 import java.security.NoSuchAlgorithmException;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.io.File;
-import java.nio.file.Files;
 
 @RestController
 @RequestMapping("/api/cpabe")
@@ -48,21 +50,29 @@ public class CpabeController {
     @Autowired
     private Cpabe cpabe;
 
+    @Autowired
+    private KeyInitializationService keyInitService;
+
     @GetMapping("/setup")
     public Map<String, Object> setup() {
         Map<String, Object> response = new HashMap<>();
 
         try {
-            PublicKey pub = new PublicKey();
-            MasterSecretKey msk = new MasterSecretKey();
+            // Check if keys already exist
+            boolean pubKeyExists = Files.exists(Paths.get(PUB_KEY_FILE));
+            boolean mskExists = Files.exists(Paths.get(MSK_KEY_FILE));
 
-            cpabe.setup(pub, msk);
+            // Initialize keys if they don't exist
+            if (!pubKeyExists || !mskExists) {
+                keyInitService.initializeKeys();
+            }
 
-            byte[] pubBytes = SerializeUtil.serializePublicKey(pub);
-            FileUtil.writeFile(PUB_KEY_FILE, pubBytes);
+            // Read the existing keys for the response
+            byte[] pubBytes = FileUtil.readFile(PUB_KEY_FILE);
+            PublicKey pub = SerializeUtil.unserializePublicKey(pubBytes);
 
-            byte[] mskBytes = SerializeUtil.serializeMasterSecretKey(msk);
-            FileUtil.writeFile(MSK_KEY_FILE, mskBytes);
+            byte[] mskBytes = FileUtil.readFile(MSK_KEY_FILE);
+            MasterSecretKey msk = SerializeUtil.unserializeMasterSecretKey(pub, mskBytes);
 
             PublicKeyDto pubDto = new PublicKeyDto();
             pubDto.g = pub.g.toString();
@@ -77,10 +87,10 @@ public class CpabeController {
 
             response.put("publicKey", pubDto);
             response.put("masterSecretKey", mskDto);
-            response.put("message", "Setup complete! Public and master keys generated.");
+            response.put("message", "Setup complete! Public and master keys are ready.");
 
         } catch (IOException e) {
-            response.put("error", "An error occurred during CP-ABE setup. Please try again.");
+            response.put("error", "An error occurred during CP-ABE setup: " + e.getMessage());
         }
 
         return response;
@@ -91,6 +101,14 @@ public class CpabeController {
         Map<String, Object> response = new HashMap<>();
 
         try {
+            // Check for keys and generate if missing
+            boolean pubKeyExists = Files.exists(Paths.get(PUB_KEY_FILE));
+            boolean mskExists = Files.exists(Paths.get(MSK_KEY_FILE));
+
+            if (!pubKeyExists || !mskExists) {
+                keyInitService.initializeKeys();
+            }
+
             @SuppressWarnings("unchecked")
             String[] attributes = ((List<String>) request.get("attributes")).toArray(new String[0]);
 
@@ -121,6 +139,15 @@ public class CpabeController {
 
         Map<String, Object> response = new HashMap<>();
         try {
+            // Check for keys and generate if missing
+            boolean pubKeyExists = Files.exists(Paths.get(PUB_KEY_FILE));
+            boolean mskExists = Files.exists(Paths.get(MSK_KEY_FILE));
+
+            if (!pubKeyExists || !mskExists) {
+                keyInitService.initializeKeys();
+                System.out.println("Generated missing keys before encryption");
+            }
+
             String originalFilename = file.getOriginalFilename();
             System.out.println("Received file: " + originalFilename + ", size: " + file.getSize());
             byte[] plaintext = file.getBytes(); // Read file contents
@@ -173,7 +200,7 @@ public class CpabeController {
 
             return new ResponseEntity<>(fullEncryptedFile, headers, HttpStatus.OK);
         } catch (Exception e) {
-            e.printStackTrace();
+            // e.printStackTrace();
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body(("Encryption failed: " + e.getMessage()).getBytes());
         }
@@ -186,6 +213,15 @@ public class CpabeController {
             System.out.println("Starting decryption process...");
             System.out.println("Received encrypted file: " + encryptedFile.getOriginalFilename() + ", size: "
                     + encryptedFile.getSize());
+
+            // Check for keys and generate if missing
+            boolean pubKeyExists = Files.exists(Paths.get(PUB_KEY_FILE));
+            boolean mskExists = Files.exists(Paths.get(MSK_KEY_FILE));
+
+            if (!pubKeyExists || !mskExists) {
+                keyInitService.initializeKeys();
+                System.out.println("Generated missing keys before decryption");
+            }
 
             byte[] pubBytes = FileUtil.readFile(PUB_KEY_FILE);
             PublicKey pub = SerializeUtil.unserializePublicKey(pubBytes);
@@ -203,7 +239,7 @@ public class CpabeController {
                 System.out.println("Successfully read encrypted file structure");
             } catch (IOException e) {
                 System.err.println("Error reading encrypted file: " + e.getMessage());
-                e.printStackTrace();
+                // e.printStackTrace();
                 return ResponseEntity.status(HttpStatus.BAD_REQUEST)
                         .body("Invalid or corrupted encrypted file format: " + e.getMessage());
             }
@@ -269,7 +305,7 @@ public class CpabeController {
                     return new ResponseEntity<>(plaintext, headers, HttpStatus.OK);
                 } catch (Exception e) {
                     System.err.println("AES decryption failed: " + e.getMessage());
-                    e.printStackTrace();
+                    // e.printStackTrace();
                     return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                             .body("AES decryption failed: " + e.getMessage());
                 }
@@ -277,7 +313,7 @@ public class CpabeController {
                 return ResponseEntity.status(HttpStatus.FORBIDDEN).body("Policy not satisfied for decryption");
             }
         } catch (Exception e) {
-            e.printStackTrace();
+            // e.printStackTrace();
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body("Error during decryption: " + e.getMessage());
         }
