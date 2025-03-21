@@ -17,20 +17,53 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Badge } from "@/components/ui/badge";
+import { ApiClient } from "@/lib/api-client";
+import { formatBytes } from "@/lib/utils";
 
 export type File = {
-  id: string;
+  id: number;
   name: string;
-  size: string;
-  date: string;
-  type: string;
+  fullName: string;
+  path: string;
+  size: number;
+  createdAt: string;
+  type?: string;
 };
 
-const handleDownload = (fileId: string) => {
-  toast("Download Started", { description: `Downloading file ${fileId}` });
+const handleDownload = async (file: File) => {
+  try {
+    toast("Download Started", { description: `Downloading ${file.name}` });
+    const response = await ApiClient.downloadEncryptedFile(file.fullName);
+
+    if (response.error) {
+      toast.error("Download Failed", { description: response.error });
+      return;
+    }
+
+    if (response.data) {
+      // Create a download link and trigger it
+      const url = window.URL.createObjectURL(response.data as Blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = file.fullName;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+
+      toast.success("Download Complete", {
+        description: `File ${file.name} downloaded successfully`,
+      });
+    }
+  } catch (error) {
+    toast.error("Download Failed", {
+      description: `An error occurred: ${error}`,
+    });
+  }
 };
 
-const handleDelete = (fileId: string) => {
+const handleDelete = (fileId: number) => {
+  // Placeholder for future delete functionality
   toast("File Deleted", { description: `File ${fileId} has been removed` });
 };
 
@@ -64,7 +97,10 @@ export const createColumns = (
     accessorKey: "type",
     header: "Type",
     cell: ({ row }) => {
-      const type = row.getValue("type") as string;
+      const file = row.original;
+      const name = file.name as string;
+      const type = name.split(".").pop()?.toUpperCase() || "UNKNOWN";
+
       return (
         <Badge variant="outline" className="font-medium">
           {type}
@@ -75,9 +111,12 @@ export const createColumns = (
   {
     accessorKey: "size",
     header: "Size",
+    cell: ({ row }) => {
+      return <div>{formatBytes(row.original.size)}</div>;
+    },
   },
   {
-    accessorKey: "date",
+    accessorKey: "createdAt",
     header: ({ column }) => {
       return (
         <Button
@@ -90,7 +129,7 @@ export const createColumns = (
       );
     },
     cell: ({ row }) => {
-      const date = new Date(row.getValue("date"));
+      const date = new Date(row.getValue("createdAt"));
       return <div>{date.toLocaleDateString()}</div>;
     },
   },
@@ -104,7 +143,7 @@ export const createColumns = (
           <Button
             variant="ghost"
             size="icon"
-            onClick={() => handleDownload(file.id)}
+            onClick={() => handleDownload(file)}
             title="Download"
           >
             <Download className="h-4 w-4" />
@@ -123,7 +162,7 @@ export const createColumns = (
                 <Info className="mr-2 h-4 w-4" />
                 View Details
               </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => handleDownload(file.id)}>
+              <DropdownMenuItem onClick={() => handleDownload(file)}>
                 <Download className="mr-2 h-4 w-4" />
                 Download
               </DropdownMenuItem>

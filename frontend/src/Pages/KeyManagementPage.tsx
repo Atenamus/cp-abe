@@ -1,38 +1,19 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
 import { toast } from "sonner";
-import { Plus, RefreshCw } from "lucide-react";
-import { DataTable } from "@/components/data-table";
-import { columns } from "@/components/columns";
+import { RefreshCw, ShieldCheck, Download, Plus } from "lucide-react";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
-import { ApiClient } from "@/lib/api-client";
-
-type ApiResponse<T> = {
-  data?: T;
-  error?: string;
-};
-
-type PrivateKey = {
-  id: string;
-  name: string;
-  created: string;
-  status: "active" | "expired" | "revoked";
-  attributes: string[];
-  lastUsed: string | null;
-};
-
-type KeyData = {
-  keyData: ArrayBuffer;
-};
+import { Input } from "@/components/ui/input";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Badge } from "@/components/ui/badge";
 
 const attributeOptions = [
   { id: "department_HR", label: "HR Department" },
@@ -46,32 +27,9 @@ const attributeOptions = [
 
 export default function KeyManagementPage() {
   const [isGenerating, setIsGenerating] = useState(false);
-  const [isDeleting, setIsDeleting] = useState(false);
-  const [selectedKey, setSelectedKey] = useState<string | null>(null);
-  const [privateKeys, setPrivateKeys] = useState<PrivateKey[]>([]);
-  const [showAttributeDialog, setShowAttributeDialog] = useState(false);
   const [selectedAttributes, setSelectedAttributes] = useState<string[]>([]);
-
-  useEffect(() => {
-    fetchKeys();
-  }, []);
-
-  const fetchKeys = async () => {
-    try {
-      const result = (await ApiClient.listKeys()) as ApiResponse<PrivateKey[]>;
-      if (result.error) {
-        throw new Error(result.error);
-      }
-      if (result.data) {
-        setPrivateKeys(result.data);
-      }
-    } catch (error) {
-      console.error("Error fetching keys:", error);
-      toast("Failed to fetch keys", {
-        description: "There was an error retrieving your private keys",
-      });
-    }
-  };
+  const [customAttribute, setCustomAttribute] = useState("");
+  const [customAttributes, setCustomAttributes] = useState<string[]>([]);
 
   const handleAttributeSelect = (attributeId: string) => {
     setSelectedAttributes((current) =>
@@ -81,8 +39,49 @@ export default function KeyManagementPage() {
     );
   };
 
+  const validateAttributeFormat = (attribute: string): boolean => {
+    // Check for category_value format using regex - case insensitive check
+    return /^[a-zA-Z0-9]+_[a-zA-Z0-9]+(?:_[a-zA-Z0-9]+)*$/.test(attribute);
+  };
+
+  const handleAddCustomAttribute = () => {
+    if (customAttribute.trim() === "") {
+      return;
+    }
+
+    // Format custom attribute: replace spaces with underscores but preserve case
+    const formattedAttribute = customAttribute.trim().replace(/\s+/g, "_");
+
+    // Validate the attribute format
+    if (!validateAttributeFormat(formattedAttribute)) {
+      toast("Invalid attribute format", {
+        description:
+          "Attributes must follow the format: category_value (e.g., location_NY)",
+        duration: 3000,
+      });
+      return;
+    }
+
+    if (!customAttributes.includes(formattedAttribute)) {
+      setCustomAttributes([...customAttributes, formattedAttribute]);
+      setCustomAttribute("");
+    } else {
+      toast("Duplicate attribute", {
+        description: "This attribute has already been added",
+        duration: 2000,
+      });
+    }
+  };
+
+  const handleRemoveCustomAttribute = (attribute: string) => {
+    setCustomAttributes(customAttributes.filter((attr) => attr !== attribute));
+  };
+
   const handleGenerateKey = async () => {
-    if (selectedAttributes.length === 0) {
+    // Combine predefined and custom attributes
+    const allAttributes = [...selectedAttributes, ...customAttributes];
+
+    if (allAttributes.length === 0) {
       toast("Select attributes", {
         description: "Please select at least one attribute for the key",
       });
@@ -97,7 +96,7 @@ export default function KeyManagementPage() {
           "Content-Type": "application/json",
           Authorization: `Bearer ${localStorage.getItem("token")}`,
         },
-        body: JSON.stringify({ attributes: selectedAttributes }),
+        body: JSON.stringify({ attributes: allAttributes }),
       });
 
       if (!response.ok) {
@@ -114,13 +113,6 @@ export default function KeyManagementPage() {
       document.body.removeChild(a);
       URL.revokeObjectURL(url);
 
-      // Update the keys list
-      await fetchKeys();
-
-      // Reset selected attributes and close dialog
-      setSelectedAttributes([]);
-      setShowAttributeDialog(false);
-
       toast("Key generated successfully", {
         description: "Your new private key has been created and downloaded",
       });
@@ -134,143 +126,53 @@ export default function KeyManagementPage() {
     }
   };
 
-  const handleDeleteKey = async (keyId: string) => {
-    setIsDeleting(true);
-    try {
-      const result = await ApiClient.deleteKey(keyId);
-      if (result.error) {
-        throw new Error(result.error);
-      }
-
-      // Update local state
-      setPrivateKeys(privateKeys.filter((key) => key.id !== keyId));
-
-      toast("Key deleted", {
-        description: "The private key has been deleted successfully",
-      });
-    } catch (error) {
-      console.error("Error deleting key:", error);
-      toast("Failed to delete key", {
-        description: "There was an error deleting the private key",
-      });
-    } finally {
-      setIsDeleting(false);
-      setSelectedKey(null);
-    }
-  };
-
-  const handleDownloadKey = async (keyId: string) => {
-    const key = privateKeys.find((k) => k.id === keyId);
-    if (!key) return;
-
-    try {
-      const result = (await ApiClient.generateKey(
-        key.attributes
-      )) as ApiResponse<KeyData>;
-      if (result.error) {
-        throw new Error(result.error);
-      }
-
-      if (result.data) {
-        // Download the key file
-        const blob = new Blob([new Uint8Array(result.data.keyData)], {
-          type: "application/octet-stream",
-        });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement("a");
-        a.href = url;
-        a.download = `${key.name.replace(/\s+/g, "_")}.dat`;
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        URL.revokeObjectURL(url);
-      }
-
-      toast("Key downloaded", {
-        description: "Your private key has been downloaded successfully",
-      });
-    } catch (error) {
-      console.error("Error downloading key:", error);
-      toast("Failed to download key", {
-        description: "There was an error downloading the private key",
-      });
-    }
+  // Get combined attributes for display
+  const allAttributes = [...selectedAttributes, ...customAttributes];
+  const getAttributeLabel = (attributeId: string) => {
+    const predefinedAttr = attributeOptions.find(
+      (attr) => attr.id === attributeId
+    );
+    return predefinedAttr ? predefinedAttr.label : attributeId;
   };
 
   return (
-    <div className="space-y-6 max-w-7xl w-full mx-auto p-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold">Private Key Management</h1>
-          <p className="text-muted-foreground py-1.5">
-            Manage your attribute-based private keys for secure access control
-          </p>
-        </div>
-        <Button
-          onClick={() => setShowAttributeDialog(true)}
-          disabled={isGenerating}
-          size="lg"
-        >
-          <Plus className="mr-2 h-4 w-4" />
-          Generate New Key
-        </Button>
-      </div>
-
+    <div className="space-y-8 max-w-5xl w-full mx-auto p-6">
       <div>
-        <DataTable
-          columns={columns}
-          data={privateKeys}
-          onDownload={handleDownloadKey}
-          onDelete={(keyId) => setSelectedKey(keyId)}
-        />
+        <h1 className="text-3xl font-bold">Private Key Generation</h1>
+        <p className="text-muted-foreground py-1.5">
+          Generate an attribute-based private key for secure access control
+        </p>
       </div>
 
-      {/* Delete Confirmation Dialog */}
-      <Dialog
-        open={!!selectedKey}
-        onOpenChange={(open) => !open && setSelectedKey(null)}
-      >
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Delete Private Key</DialogTitle>
-            <DialogDescription>
-              Are you sure you want to delete this private key? This action
-              cannot be undone.
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setSelectedKey(null)}>
-              Cancel
-            </Button>
-            <Button
-              variant="destructive"
-              onClick={() => selectedKey && handleDeleteKey(selectedKey)}
-              disabled={isDeleting}
-            >
-              {isDeleting ? "Deleting..." : "Delete"}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <Alert variant="default" className="bg-blue-50 border-blue-200">
+        <ShieldCheck className="h-4 w-4" />
+        <AlertTitle>How Key Generation Works</AlertTitle>
+        <AlertDescription>
+          The private key will be generated based on the attributes you select.
+          These attributes determine which encrypted files you can access. You
+          will need to store the key securely as it will not be saved on the
+          server.
+        </AlertDescription>
+      </Alert>
 
-      {/* Attribute Selection Dialog */}
-      <Dialog
-        open={showAttributeDialog}
-        onOpenChange={(open) => !open && setShowAttributeDialog(false)}
-      >
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Select Key Attributes</DialogTitle>
-            <DialogDescription>
-              Choose the attributes that will be embedded in your private key.
-              These attributes determine which encrypted files you can access.
-            </DialogDescription>
-          </DialogHeader>
-
-          <div className="grid gap-4 py-4">
-            <div className="space-y-4">
+      <Card className="shadow-md">
+        <CardHeader>
+          <CardTitle>Generate Attribute-Based Private Key</CardTitle>
+          <CardDescription>
+            Choose the attributes to embed in your private key that will
+            determine your access permissions
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-6">
+          {/* Predefined attributes section */}
+          <div className="space-y-4">
+            <div className="font-medium">Select Predefined Attributes:</div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
               {attributeOptions.map((attr) => (
-                <div key={attr.id} className="flex items-center space-x-2">
+                <div
+                  key={attr.id}
+                  className="flex items-center space-x-2 bg-gray-50 p-2 rounded-md"
+                >
                   <Checkbox
                     id={attr.id}
                     checked={selectedAttributes.includes(attr.id)}
@@ -282,19 +184,88 @@ export default function KeyManagementPage() {
             </div>
           </div>
 
-          <DialogFooter>
-            <Button
-              variant="outline"
-              onClick={() => {
-                setShowAttributeDialog(false);
-                setSelectedAttributes([]);
-              }}
-            >
-              Cancel
-            </Button>
+          {/* Custom attributes section */}
+          <div className="space-y-4 pt-4 border-t border-gray-200">
+            <div className="font-medium">Add Custom Attributes:</div>
+            <div className="flex flex-wrap gap-2">
+              {customAttributes.map((attr, index) => (
+                <div
+                  key={index}
+                  className="bg-blue-50 px-3 py-1 rounded-full flex items-center gap-1"
+                >
+                  <span className="text-sm">{attr}</span>
+                  <button
+                    onClick={() => handleRemoveCustomAttribute(attr)}
+                    className="ml-1 text-gray-500 hover:text-red-500 focus:outline-none"
+                  >
+                    &times;
+                  </button>
+                </div>
+              ))}
+            </div>
+            <div className="flex gap-2">
+              <div className="flex-grow">
+                <Input
+                  placeholder="Enter custom attribute (e.g., location_ny)"
+                  value={customAttribute}
+                  onChange={(e) => setCustomAttribute(e.target.value)}
+                  onKeyDown={(e) =>
+                    e.key === "Enter" && handleAddCustomAttribute()
+                  }
+                />
+              </div>
+              <Button variant="outline" onClick={handleAddCustomAttribute}>
+                <Plus className="h-4 w-4 mr-1" /> Add
+              </Button>
+            </div>
+            <p className="text-xs text-gray-500">
+              Custom attributes should follow the format: category_value (e.g.,
+              location_NY, clearance_Top_Secret)
+            </p>
+          </div>
+
+          {/* Final attributes summary */}
+          <div className="pt-4 border-t border-gray-200">
+            <div className="font-medium mb-2">
+              Attributes for Key Generation:
+            </div>
+            {allAttributes.length > 0 ? (
+              <div className="flex flex-wrap gap-2 mb-4">
+                {allAttributes.map((attr, index) => (
+                  <Badge key={index} variant="secondary" className="px-3 py-1">
+                    {getAttributeLabel(attr)}
+                  </Badge>
+                ))}
+              </div>
+            ) : (
+              <p className="text-muted-foreground mb-4">
+                No attributes selected yet. Please select at least one
+                attribute.
+              </p>
+            )}
+
+            {allAttributes.length > 0 && (
+              <div className="bg-gray-50 p-3 rounded-md text-sm">
+                <div className="font-medium mb-1">
+                  Raw attribute values to be sent:
+                </div>
+                <code className="text-xs bg-gray-100 p-2 block rounded overflow-x-auto whitespace-pre">
+                  {JSON.stringify(allAttributes, null, 2)}
+                </code>
+              </div>
+            )}
+          </div>
+
+          <div className="pt-4">
             <Button
               onClick={handleGenerateKey}
-              disabled={selectedAttributes.length === 0 || isGenerating}
+              disabled={
+                (selectedAttributes.length === 0 &&
+                  customAttributes.length === 0) ||
+                isGenerating
+              }
+              size="lg"
+              className="w-full md:w-auto"
             >
               {isGenerating ? (
                 <>
@@ -302,12 +273,15 @@ export default function KeyManagementPage() {
                   Generating...
                 </>
               ) : (
-                "Generate Key"
+                <>
+                  <Download className="mr-2 h-4 w-4" />
+                  Generate and Download Key
+                </>
               )}
             </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+          </div>
+        </CardContent>
+      </Card>
     </div>
   );
 }

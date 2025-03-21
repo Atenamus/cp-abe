@@ -7,6 +7,15 @@ interface ApiResponse<T = any> {
     error?: string;
 }
 
+export interface EncryptedFile {
+    id: number;
+    name: string;
+    fullName: string;
+    path: string;
+    size: number;
+    createdAt: string;
+}
+
 export class ApiClient {
     private static async request<T>(
         endpoint: string,
@@ -108,5 +117,14 @@ export class ApiClient {
 
     static async deleteKey(keyId: string) {
         return this.delete(`/cpabe/keys/${keyId}`);
+    }
+    
+    // New methods for encrypted files
+    static async listEncryptedFiles() {
+        return this.get<EncryptedFile[]>('/cpabe/files');
+    }
+    
+    static async downloadEncryptedFile(filename: string) {
+        return this.get<Blob>(`/cpabe/files/download?filename=${encodeURIComponent(filename)}`);
     }
 }

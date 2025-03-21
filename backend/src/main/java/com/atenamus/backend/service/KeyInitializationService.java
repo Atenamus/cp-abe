@@ -1,7 +1,7 @@
 package com.atenamus.backend.service;
 
-import java.io.File;
 import java.nio.file.Files;
+import java.nio.file.Path;
 import java.nio.file.Paths;
 
 import org.springframework.beans.factory.annotation.Autowired;
@@ -17,49 +17,76 @@ import com.atenamus.backend.util.SerializeUtil;
 
 @Service
 public class KeyInitializationService {
-
+    private static final String KEYS_DIR = "keys";
     private static final String PUB_KEY_FILE = "public_key.dat";
     private static final String MSK_KEY_FILE = "master_secret_key.dat";
+
+    private final Path keysDirectoryPath;
+    private final Path publicKeyPath;
+    private final Path masterKeyPath;
 
     @Autowired
     private Cpabe cpabe;
 
-    /**
-     * Checks if the public and master secret keys exist and generates them if
-     * either is missing. This method is called when the application is ready.
-     */
+    private PublicKey pub;
+    private MasterSecretKey msk;
+
+    public KeyInitializationService() {
+        // Get the absolute path to the project root directory
+        Path projectRoot = Paths.get("").toAbsolutePath();
+        this.keysDirectoryPath = projectRoot.resolve(KEYS_DIR);
+        this.publicKeyPath = keysDirectoryPath.resolve(PUB_KEY_FILE);
+        this.masterKeyPath = keysDirectoryPath.resolve(MSK_KEY_FILE);
+    }
+
     @EventListener(ApplicationReadyEvent.class)
-    public void initializeKeys() {
+    public void init() {
         try {
-            boolean pubKeyExists = Files.exists(Paths.get(PUB_KEY_FILE));
-            boolean mskExists = Files.exists(Paths.get(MSK_KEY_FILE));
+            // Create keys directory if it doesn't exist
+            Files.createDirectories(keysDirectoryPath);
+
+            // Check if keys exist, if not generate them
+            boolean pubKeyExists = Files.exists(publicKeyPath);
+            boolean mskExists = Files.exists(masterKeyPath);
 
             if (!pubKeyExists || !mskExists) {
-                System.out.println("CP-ABE key files missing. Generating new keys...");
-                System.out.println("Public key exists: " + pubKeyExists);
-                System.out.println("Master secret key exists: " + mskExists);
-
-                // Generate new keys
-                PublicKey pub = new PublicKey();
-                MasterSecretKey msk = new MasterSecretKey();
-
-                // Use the setup method to generate a new key pair
-                cpabe.setup(pub, msk);
-
-                // Serialize and save the keys
-                byte[] pubBytes = SerializeUtil.serializePublicKey(pub);
-                FileUtil.writeFile(PUB_KEY_FILE, pubBytes);
-
-                byte[] mskBytes = SerializeUtil.serializeMasterSecretKey(msk);
-                FileUtil.writeFile(MSK_KEY_FILE, mskBytes);
-
-                System.out.println("Successfully generated new CP-ABE keys.");
+                initializeKeys();
             } else {
-                System.out.println("CP-ABE keys already exist. Skipping key generation.");
+                // Load existing keys
+                byte[] pubBytes = Files.readAllBytes(publicKeyPath);
+                pub = SerializeUtil.unserializePublicKey(pubBytes);
+
+                byte[] mskBytes = Files.readAllBytes(masterKeyPath);
+                msk = SerializeUtil.unserializeMasterSecretKey(pub, mskBytes);
             }
         } catch (Exception e) {
-            System.err.println("Error initializing CP-ABE keys: " + e.getMessage());
-            // e.printStackTrace();
+            e.printStackTrace();
         }
+    }
+
+    public void initializeKeys() throws Exception {
+        System.out.println("Initializing CP-ABE keys...");
+        pub = new PublicKey();
+        msk = new MasterSecretKey();
+        cpabe.setup(pub, msk);
+
+        byte[] pubBytes = SerializeUtil.serializePublicKey(pub);
+        byte[] mskBytes = SerializeUtil.serializeMasterSecretKey(msk);
+
+        Files.write(publicKeyPath, pubBytes);
+        Files.write(masterKeyPath, mskBytes);
+        System.out.println("CP-ABE keys initialized successfully in: " + keysDirectoryPath);
+    }
+
+    public Path getPublicKeyPath() {
+        return publicKeyPath;
+    }
+
+    public Path getMasterKeyPath() {
+        return masterKeyPath;
+    }
+
+    public Path getKeysDirectoryPath() {
+        return keysDirectoryPath;
     }
 }

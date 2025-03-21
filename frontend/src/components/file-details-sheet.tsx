@@ -20,6 +20,8 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { Separator } from "@/components/ui/separator";
+import { ApiClient } from "@/lib/api-client";
+import { formatBytes } from "@/lib/utils";
 
 interface FileDetailsSheetProps {
   file: File | null;
@@ -32,36 +34,67 @@ export function FileDetailsSheet({
   open,
   onOpenChange,
 }: FileDetailsSheetProps) {
-  const handleDownload = () => {
-    if (file) {
+  const handleDownload = async () => {
+    if (!file) return;
+
+    try {
       toast("Download Started", {
-        description: `Downloading file ${file.name}`,
+        description: `Downloading ${file.name}`,
+      });
+
+      const response = await ApiClient.downloadEncryptedFile(file.fullName);
+
+      if (response.error) {
+        toast.error("Download Failed", { description: response.error });
+        return;
+      }
+
+      if (response.data) {
+        // Create a download link and trigger it
+        const url = window.URL.createObjectURL(response.data as Blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = file.fullName;
+        document.body.appendChild(a);
+        a.click();
+        window.URL.revokeObjectURL(url);
+        document.body.removeChild(a);
+
+        toast.success("Download Complete", {
+          description: `File ${file.name} downloaded successfully`,
+        });
+      }
+    } catch (error) {
+      toast.error("Download Failed", {
+        description: `An error occurred: ${error}`,
       });
     }
   };
 
-  // Mock data for file details
+  // Mock data for file details (we could enhance this in the future with real data)
   const encryptionDetails = {
-    algorithm: "AES-256",
-    encryptedOn: "2025-02-15",
-    encryptedBy: "John Doe",
-    policy: "Corporate-Standard",
-    expiresOn: "2026-02-15",
+    algorithm: "CP-ABE (Ciphertext-Policy Attribute-Based Encryption)",
+    encryptedOn: file?.createdAt || new Date().toISOString(),
   };
 
   const accessHistory = [
-    { user: "Jane Smith", action: "Viewed", date: "2025-03-10 14:32" },
-    { user: "Mike Johnson", action: "Downloaded", date: "2025-03-08 09:15" },
-    { user: "John Doe", action: "Encrypted", date: "2025-02-15 11:20" },
+    {
+      user: "Current User",
+      action: "Viewed",
+      date: new Date().toLocaleString(),
+    },
+    {
+      user: "Current User",
+      action: "Encrypted",
+      date: file ? new Date(file.createdAt).toLocaleString() : "",
+    },
   ];
 
-  const sharingDetails = {
-    sharedWith: ["Marketing Team", "Executive Board"],
-    accessLevel: "Read-Only",
-    sharingExpiry: "2025-06-15",
-  };
-
   if (!file) return null;
+
+  // Extract file extension for type
+  const fileName = file.name;
+  const fileType = fileName.split(".").pop()?.toUpperCase() || "UNKNOWN";
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
@@ -73,10 +106,12 @@ export function FileDetailsSheet({
               {file.name}
             </SheetTitle>
             <SheetDescription className="flex flex-wrap items-center gap-2">
-              <Badge variant="outline">{file.type}</Badge>
-              <span>{file.size}</span>
+              <Badge variant="outline">{fileType}</Badge>
+              <span>{formatBytes(file.size)}</span>
               <span>•</span>
-              <span>Created: {new Date(file.date).toLocaleDateString()}</span>
+              <span>
+                Created: {new Date(file.createdAt).toLocaleDateString()}
+              </span>
             </SheetDescription>
           </SheetHeader>
           <div className="flex justify-start py-4">
@@ -94,9 +129,9 @@ export function FileDetailsSheet({
               <Lock className="mr-2 h-4 w-4" />
               <span className="hidden sm:inline">Encryption</span>
             </TabsTrigger>
-            <TabsTrigger value="sharing">
-              <Users className="mr-2 h-4 w-4" />
-              <span className="hidden sm:inline">Sharing</span>
+            <TabsTrigger value="details">
+              <FileText className="mr-2 h-4 w-4" />
+              <span className="hidden sm:inline">Details</span>
             </TabsTrigger>
             <TabsTrigger value="history">
               <History className="mr-2 h-4 w-4" />
@@ -108,67 +143,55 @@ export function FileDetailsSheet({
             <div className="space-y-4">
               <div className="flex items-center">
                 <Shield className="mr-2 h-5 w-5" />
-                <h3 className="text-lg font-medium">Encryption Policy</h3>
+                <h3 className="text-lg font-medium">Encryption Details</h3>
               </div>
               <p className="text-sm text-muted-foreground">
-                Details about the file's encryption
+                Information about the file's encryption
               </p>
 
               <div className="grid grid-cols-2 gap-3 mt-4">
                 <div className="text-sm font-medium">Algorithm</div>
                 <div className="text-sm">{encryptionDetails.algorithm}</div>
 
-                <div className="text-sm font-medium">Policy</div>
-                <div className="text-sm">
-                  <Badge variant="secondary">{encryptionDetails.policy}</Badge>
-                </div>
-
                 <div className="text-sm font-medium">Encrypted On</div>
                 <div className="text-sm">
                   {new Date(encryptionDetails.encryptedOn).toLocaleDateString()}
                 </div>
 
-                <div className="text-sm font-medium">Encrypted By</div>
-                <div className="text-sm">{encryptionDetails.encryptedBy}</div>
-
-                <div className="text-sm font-medium">Expires On</div>
-                <div className="text-sm">
-                  {new Date(encryptionDetails.expiresOn).toLocaleDateString()}
-                </div>
+                <div className="text-sm font-medium">File Path</div>
+                <div className="text-sm text-wrap break-all">{file.path}</div>
               </div>
             </div>
           </TabsContent>
 
-          <TabsContent value="sharing" className="space-y-4 pt-4">
+          <TabsContent value="details" className="space-y-4 pt-4">
             <div className="space-y-4">
               <div className="flex items-center">
-                <Users className="mr-2 h-5 w-5" />
-                <h3 className="text-lg font-medium">Sharing Settings</h3>
+                <FileText className="mr-2 h-5 w-5" />
+                <h3 className="text-lg font-medium">File Details</h3>
               </div>
               <p className="text-sm text-muted-foreground">
-                Who has access to this file
+                Technical information about the file
               </p>
 
               <div className="grid grid-cols-2 gap-3 mt-4">
-                <div className="text-sm font-medium">Access Level</div>
+                <div className="text-sm font-medium">Original Filename</div>
+                <div className="text-sm">{file.name}</div>
+
+                <div className="text-sm font-medium">Encrypted Filename</div>
+                <div className="text-sm">{file.fullName}</div>
+
+                <div className="text-sm font-medium">File Size</div>
+                <div className="text-sm">{formatBytes(file.size)}</div>
+
+                <div className="text-sm font-medium">File Type</div>
                 <div className="text-sm">
-                  <Badge variant="outline">{sharingDetails.accessLevel}</Badge>
+                  <Badge variant="outline">{fileType}</Badge>
                 </div>
 
-                <div className="text-sm font-medium">Sharing Expiry</div>
+                <div className="text-sm font-medium">Created At</div>
                 <div className="text-sm">
-                  {new Date(sharingDetails.sharingExpiry).toLocaleDateString()}
-                </div>
-
-                <div className="text-sm font-medium col-span-2 mt-2">
-                  Shared With
-                </div>
-                <div className="col-span-2 flex flex-wrap gap-2">
-                  {sharingDetails.sharedWith.map((group) => (
-                    <Badge key={group} variant="secondary">
-                      {group}
-                    </Badge>
-                  ))}
+                  {new Date(file.createdAt).toLocaleString()}
                 </div>
               </div>
             </div>
