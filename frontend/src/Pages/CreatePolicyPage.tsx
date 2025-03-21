@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { useNavigate } from "react-router";
+import { useEffect, useState } from "react";
+import { useNavigate, useParams } from "react-router";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -22,7 +22,6 @@ import {
 import { X, Plus, Check, AlertCircle } from "lucide-react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { toast } from "sonner";
-import { ApiClient } from "@/lib/api-client";
 import { auth } from "@/lib/auth";
 
 type AttributeGroup = {
@@ -32,7 +31,11 @@ type AttributeGroup = {
 };
 
 export default function CreatePolicyPage() {
-  let navigate = useNavigate();
+  const navigate = useNavigate();
+  const { policyId } = useParams();
+  const isEditMode = Boolean(policyId);
+
+  const [isLoading, setIsLoading] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
   const [policyName, setPolicyName] = useState("");
   const [policyDescription, setPolicyDescription] = useState("");
@@ -40,6 +43,47 @@ export default function CreatePolicyPage() {
     { id: "group-1", attributes: [""], operator: "AND" },
   ]);
   const [groupOperator, setGroupOperator] = useState<"AND" | "OR">("AND");
+
+  useEffect(() => {
+    if (isEditMode) {
+      const fetchPolicyData = async () => {
+        setIsLoading(true);
+        try {
+          const response = await fetch(
+            "http://localhost:8080/api/user/get-policy",
+            {
+              method: "GET",
+              headers: {
+                "Content-Type": "application/json",
+                Authorization: `Bearer ${auth.getToken()}`,
+              },
+            }
+          );
+
+          if (!response.ok) {
+            throw new Error("Failed to fetch policy");
+          }
+
+          const data = await response.json();
+          console.log("🚀 ~ fetchPolicyData ~ data:", data);
+          const policy = data.body[0];
+
+          setPolicyName(policy.policyName);
+          setPolicyDescription(policy.policyDescription || "");
+
+          parseAndPopulatePolicyExpression(policy.policyExpression);
+        } catch (error) {
+          toast("Failed to load policy", {
+            description: `There was an error loading the policy: ${error}`,
+          });
+          navigate("/dashboard/policies");
+        } finally {
+          setIsLoading(false);
+        }
+      };
+      fetchPolicyData();
+    }
+  }, [isEditMode, navigate]);
 
   // Available attributes for the demo
   const availableAttributes = [
@@ -145,6 +189,38 @@ export default function CreatePolicyPage() {
     );
   };
 
+  const parseAndPopulatePolicyExpression = (expression: string) => {
+    const normalizedExpression = expression.replace(/_/g, ":");
+    setGroupOperator("AND");
+
+    const parts = normalizedExpression.split(" AND ");
+
+    const newAttributeGroups: AttributeGroup[] = [];
+    let groupCounter = 1;
+
+    for (const part of parts) {
+      if (part.startsWith("(") && part.endsWith(")")) {
+        const groupAttributes = part
+          .slice(1, -1)
+          .split(" AND ")
+          .map((attr) => attr.trim());
+        newAttributeGroups.push({
+          id: `group-${groupCounter++}`,
+          attributes: groupAttributes,
+          operator: "AND",
+        });
+      } else {
+        newAttributeGroups.push({
+          id: `group-${groupCounter++}`,
+          attributes: [part.trim()],
+          operator: "AND",
+        });
+      }
+    }
+
+    setAttributeGroups(newAttributeGroups);
+  };
+
   const generatePolicyExpression = () => {
     const groupExpressions = attributeGroups
       .map((group) => {
@@ -164,7 +240,7 @@ export default function CreatePolicyPage() {
     return groupExpressions.join(` ${groupOperator} `);
   };
 
-  const handleCreatePolicy = async () => {
+  const handleSubmit = async () => {
     if (!policyName.trim()) {
       toast("Policy name required", {
         description: "Please provide a name for your policy",
@@ -183,55 +259,70 @@ export default function CreatePolicyPage() {
     setIsCreating(true);
     try {
       policyExpression = policyExpression.replace(/:/g, "_").toLowerCase();
-      console.log(
-        `Policy name:${policyName}\nPolicy description:${policyDescription}\nPolicy expression:${policyExpression}`
-      );
-
       const token = auth.getToken();
 
-      const response = await fetch(
-        "http://localhost:8080/api/user/create-policy",
-        {
-          method: "POST",
-          headers: {
-        "Content-Type": "application/json",
-        ...(token ? { Authorization: `Bearer ${token}` } : {}),
-          },
-          body: JSON.stringify({
-        policyName,
-        policyDescription: policyDescription.trim() || "",
-        policyExpression,
-          }),
-        }
-      );
+      const endpoint = isEditMode
+        ? `http://localhost:8080/api/user/update-policy/${policyId}`
+        : "http://localhost:8080/api/user/create-policy";
+
+      const response = await fetch(endpoint, {
+        method: isEditMode ? "PUT" : "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify({
+          policyName,
+          policyDescription: policyDescription.trim() || "",
+          policyExpression,
+        }),
+      });
 
       if (response.ok) {
-        toast("Policy created", {
-          description: "Your access policy has been created successfully",
+        toast(isEditMode ? "Policy updated" : "Policy created", {
+          description: `Your access policy has been ${
+            isEditMode ? "updated" : "created"
+          } successfully`,
         });
+        navigate("/dashboard/policies");
       } else {
         throw new Error(response.statusText);
       }
-
-      navigate("/dashboard/policies");
     } catch (error: unknown) {
-      toast("Failed to create policy", {
-        description: `There was an error creating your policy: ${error}`,
-      });
+      toast(
+        isEditMode ? "Failed to update policy" : "Failed to create policy",
+        {
+          description: `There was an error ${
+            isEditMode ? "updating" : "creating"
+          } your policy: ${error}`,
+        }
+      );
     } finally {
       setIsCreating(false);
     }
   };
 
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <div className="text-center space-y-2">
+          <div className="animate-spin w-6 h-6 border-2 border-primary border-t-transparent rounded-full mx-auto"></div>
+          <p className="text-sm text-muted-foreground">Loading policy...</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6">
       <div>
         <h1 className="text-3xl font-bold tracking-tight">
-          Create Access Policy
+          {isEditMode ? "Edit Access Policy" : "Create Access Policy"}
         </h1>
         <p className="text-muted-foreground">
-          Define attribute-based access control policies for your encrypted
-          files
+          {isEditMode
+            ? "Modify your attribute-based access control policy"
+            : "Define attribute-based access control policies for your encrypted files"}
         </p>
       </div>
 
@@ -399,13 +490,13 @@ export default function CreatePolicyPage() {
           >
             Cancel
           </Button>
-          <Button onClick={handleCreatePolicy} disabled={isCreating}>
+          <Button onClick={handleSubmit} disabled={isCreating}>
             {isCreating ? (
-              <>Creating Policy...</>
+              <>{isEditMode ? "Updating..." : "Creating..."}</>
             ) : (
               <>
                 <Check className="mr-2 h-4 w-4" />
-                Create Policy
+                {isEditMode ? "Update Policy" : "Create Policy"}
               </>
             )}
           </Button>

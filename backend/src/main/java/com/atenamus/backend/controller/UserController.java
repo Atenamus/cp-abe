@@ -80,4 +80,53 @@ public class UserController {
         }
     }
 
+    @DeleteMapping("/delete-policy/{id}")
+    public ResponseEntity<?> deletePolicy(@PathVariable Long id, HttpServletRequest httpRequest) {
+        String token = httpRequest.getHeader("Authorization");
+
+        if (token == null || !token.startsWith("Bearer ")) {
+            log.error("Invalid or missing token");
+            return new ResponseEntity<>("Invalid or missing token", HttpStatus.UNAUTHORIZED);
+        }
+
+        log.debug("Delete policy token: {}", token);
+        token = token.substring(7);
+
+        try {
+            String email = jwtUtil.extractEmail(token);
+            User user = userRepository.findByEmail(email).orElseThrow(
+                    () -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found"));
+            ResponseEntity<?> policy  = userService.deletePolicy(id, user);
+            return new ResponseEntity<>(policy, HttpStatus.OK);
+        } catch (Exception e) {
+            log.error(e.getMessage());
+            return new ResponseEntity<>(e.getMessage(), HttpStatus.INTERNAL_SERVER_ERROR);
+        }
+    }
+
+    @PutMapping("/update-policy/{id}")
+    public ResponseEntity<?> updatePolicy(@PathVariable Long id, @RequestBody CreatePolicy request,
+                                          HttpServletRequest httpRequest) {
+        String token = httpRequest.getHeader("Authorization");
+
+        if (token == null || !token.startsWith("Bearer ")) {
+            log.error("Invalid or missing token");
+            return new ResponseEntity<>("Invalid or missing token", HttpStatus.UNAUTHORIZED);
+        }
+
+        log.debug("Update policy token: {}", token);
+        token = token.substring(7);
+
+        try {
+            String email = jwtUtil.extractEmail(token);
+            User user = userRepository.findByEmail(email).orElseThrow(
+                    () -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found"));
+            ResponseEntity<?> policy  = userService.updatePolicy(id, request, user);
+            return new ResponseEntity<>(policy, HttpStatus.OK);
+        } catch (Exception e) {
+            log.error(e.getMessage());
+            return new ResponseEntity<>(e.getMessage(), HttpStatus.INTERNAL_SERVER_ERROR);
+        }
+    }
+
 }

@@ -53,6 +53,10 @@ createRoot(document.getElementById("root")!).render(
             <Route path="keys/generate" element={<KeyManagementPage />} />
             <Route path="policies" element={<PoliciesPage />} />
             <Route path="policies/create" element={<CreatePolicyPage />} />
+            <Route
+              path="policies/edit/:policyId"
+              element={<CreatePolicyPage />}
+            />
           </Route>
         </Routes>
       </BrowserRouter>

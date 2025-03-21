@@ -49,4 +49,40 @@ public class UserService {
             return new ResponseEntity<>("No policy found", HttpStatus.NOT_FOUND);
         }
     }
+
+    public ResponseEntity<?> deletePolicy(Long id, User user) {
+        Optional<UserPolicy> policy = policyRepository.findById(id);
+
+        if (policy.isPresent()) {
+            if (policy.get().getUserId().equals(user.getId())) {
+                policyRepository.deleteById(id);
+                return new ResponseEntity<>(HttpStatus.OK);
+            } else {
+                return new ResponseEntity<>("Policy not found", HttpStatus.NOT_FOUND);
+            }
+        } else {
+            return new ResponseEntity<>("Policy not found", HttpStatus.NOT_FOUND);
+        }
+    }
+
+    public ResponseEntity<?> updatePolicy(Long id, CreatePolicy request, User user) {
+        Optional<UserPolicy> policy = policyRepository.findById(id);
+
+        if (policy.isPresent()) {
+            if (policy.get().getUserId().equals(user.getId())) {
+                UserPolicy userPolicy = policy.get();
+                userPolicy.setPolicyName(request.policyName);
+                userPolicy.setPolicyDescription(request.policyDescription);
+                userPolicy.setPolicyExpression(request.policyExpression);
+
+                userPolicy = policyRepository.save(userPolicy);
+
+                return new ResponseEntity<>(userPolicy, HttpStatus.OK);
+            } else {
+                return new ResponseEntity<>("Policy not found", HttpStatus.NOT_FOUND);
+            }
+        } else {
+            return new ResponseEntity<>("Policy not found", HttpStatus.NOT_FOUND);
+        }
+    }
 }
