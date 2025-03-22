@@ -44,26 +44,81 @@ export default function KeyManagementPage() {
     return /^[a-zA-Z0-9]+_[a-zA-Z0-9]+(?:_[a-zA-Z0-9]+)*$/.test(attribute);
   };
 
+  /**
+   * Parses an attribute with comparison operators into the format expected by the backend
+   * Examples:
+   * - "department = HR" becomes "department_HR"
+   * - "age >= 30" becomes "age_ge_30"
+   * - "salary > 50000" becomes "salary_gt_50000"
+   * - "level <= 5" becomes "level_le_5"
+   * - "experience < 2" becomes "experience_lt_2"
+   */
+  const parseAttribute = (input: string): string | null => {
+    input = input.trim();
+
+    // Handle equality (=)
+    const eqRegex = /^(\w+)\s*=\s*(\w+)$/;
+    const eqMatch = input.match(eqRegex);
+    if (eqMatch) {
+      return `${eqMatch[1]}_${eqMatch[2]}`;
+    }
+
+    // Handle greater than or equal (>=)
+    const geRegex = /^(\w+)\s*>=\s*(\w+)$/;
+    const geMatch = input.match(geRegex);
+    if (geMatch) {
+      return `${geMatch[1]}_ge_${geMatch[2]}`;
+    }
+
+    // Handle greater than (>)
+    const gtRegex = /^(\w+)\s*>\s*(\w+)$/;
+    const gtMatch = input.match(gtRegex);
+    if (gtMatch) {
+      return `${gtMatch[1]}_gt_${gtMatch[2]}`;
+    }
+
+    // Handle less than or equal (<=)
+    const leRegex = /^(\w+)\s*<=\s*(\w+)$/;
+    const leMatch = input.match(leRegex);
+    if (leMatch) {
+      return `${leMatch[1]}_le_${leMatch[2]}`;
+    }
+
+    // Handle less than (<)
+    const ltRegex = /^(\w+)\s*<\s*(\w+)$/;
+    const ltMatch = input.match(ltRegex);
+    if (ltMatch) {
+      return `${ltMatch[1]}_lt_${ltMatch[2]}`;
+    }
+
+    // If the input already follows the correct format, return as is
+    if (validateAttributeFormat(input)) {
+      return input;
+    }
+
+    // Return null if no matches found and it doesn't match the format
+    return null;
+  };
+
   const handleAddCustomAttribute = () => {
     if (customAttribute.trim() === "") {
       return;
     }
 
-    // Format custom attribute: replace spaces with underscores but preserve case
-    const formattedAttribute = customAttribute.trim().replace(/\s+/g, "_");
+    // Parse the custom attribute using the new parseAttribute function
+    const parsedAttribute = parseAttribute(customAttribute);
 
-    // Validate the attribute format
-    if (!validateAttributeFormat(formattedAttribute)) {
+    if (!parsedAttribute) {
       toast("Invalid attribute format", {
         description:
-          "Attributes must follow the format: category_value (e.g., location_NY)",
+          "Attributes must be in format 'category = value', 'category > value', etc. or directly as 'category_value'",
         duration: 3000,
       });
       return;
     }
 
-    if (!customAttributes.includes(formattedAttribute)) {
-      setCustomAttributes([...customAttributes, formattedAttribute]);
+    if (!customAttributes.includes(parsedAttribute)) {
+      setCustomAttributes([...customAttributes, parsedAttribute]);
       setCustomAttribute("");
     } else {
       toast("Duplicate attribute", {
@@ -135,6 +190,41 @@ export default function KeyManagementPage() {
     return predefinedAttr ? predefinedAttr.label : attributeId;
   };
 
+  // Helper function to display human-readable attribute descriptions
+  const getHumanReadableAttribute = (attributeId: string) => {
+    // Check if it's a predefined attribute first
+    const predefined = attributeOptions.find((attr) => attr.id === attributeId);
+    if (predefined) {
+      return predefined.label;
+    }
+
+    // Try to make custom attributes more readable
+    const parts = attributeId.split("_");
+
+    if (parts.length === 2) {
+      // Simple category_value format
+      return `${parts[0]}: ${parts[1]}`;
+    } else if (parts.length === 3) {
+      // Format with comparison operator
+      const [category, operator, value] = parts;
+
+      switch (operator) {
+        case "gt":
+          return `${category} > ${value}`;
+        case "ge":
+          return `${category} >= ${value}`;
+        case "lt":
+          return `${category} < ${value}`;
+        case "le":
+          return `${category} <= ${value}`;
+        default:
+          return attributeId; // Keep original if unknown format
+      }
+    }
+
+    return attributeId; // Keep original if unknown format
+  };
+
   return (
     <div className="space-y-8 max-w-5xl w-full mx-auto p-6">
       <div>
@@ -193,7 +283,9 @@ export default function KeyManagementPage() {
                   key={index}
                   className="bg-blue-50 px-3 py-1 rounded-full flex items-center gap-1"
                 >
-                  <span className="text-sm">{attr}</span>
+                  <span className="text-sm">
+                    {getHumanReadableAttribute(attr)}
+                  </span>
                   <button
                     onClick={() => handleRemoveCustomAttribute(attr)}
                     className="ml-1 text-gray-500 hover:text-red-500 focus:outline-none"
@@ -206,7 +298,7 @@ export default function KeyManagementPage() {
             <div className="flex gap-2">
               <div className="flex-grow">
                 <Input
-                  placeholder="Enter custom attribute (e.g., location_ny)"
+                  placeholder="Enter attribute (e.g., department = HR, age > 25)"
                   value={customAttribute}
                   onChange={(e) => setCustomAttribute(e.target.value)}
                   onKeyDown={(e) =>
@@ -219,8 +311,10 @@ export default function KeyManagementPage() {
               </Button>
             </div>
             <p className="text-xs text-gray-500">
-              Custom attributes should follow the format: category_value (e.g.,
-              location_NY, clearance_Top_Secret)
+              You can enter attributes in multiple formats:
+              <br />- Direct format: category_value (e.g., location_NY)
+              <br />- With comparison: category = value, category {">"} value,
+              category {">"}= value, etc.
             </p>
           </div>
 
@@ -233,7 +327,7 @@ export default function KeyManagementPage() {
               <div className="flex flex-wrap gap-2 mb-4">
                 {allAttributes.map((attr, index) => (
                   <Badge key={index} variant="secondary" className="px-3 py-1">
-                    {getAttributeLabel(attr)}
+                    {getHumanReadableAttribute(attr)}
                   </Badge>
                 ))}
               </div>
