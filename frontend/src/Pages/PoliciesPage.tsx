@@ -8,7 +8,6 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import {
   Dialog,
   DialogContent,
@@ -39,7 +38,7 @@ type Policy = {
 
 export default function PoliciesPage() {
   const [isDeleting, setIsDeleting] = useState(false);
-  const [selectedPolicy, setSelectedPolicy] = useState<string | null>(null);
+  const [, setSelectedPolicy] = useState<string | null>(null);
   const [policies, setPolicies] = useState<Policy[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
