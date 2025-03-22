@@ -85,4 +85,18 @@ public class UserService {
             return new ResponseEntity<>("Policy not found", HttpStatus.NOT_FOUND);
         }
     }
+
+    public ResponseEntity<?> getPolicyById(Long id, User user) {
+        Optional<UserPolicy> policy = policyRepository.findById(id);
+
+        if (policy.isPresent()) {
+            if (policy.get().getUserId().equals(user.getId())) {
+                return new ResponseEntity<>(policy.get(), HttpStatus.OK);
+            } else {
+                return new ResponseEntity<>("Policy not found", HttpStatus.NOT_FOUND);
+            }
+        } else {
+            return new ResponseEntity<>("Policy not found", HttpStatus.NOT_FOUND);
+        }
+    }
 }

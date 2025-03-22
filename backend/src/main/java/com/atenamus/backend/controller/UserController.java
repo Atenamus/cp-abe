@@ -80,6 +80,29 @@ public class UserController {
         }
     }
 
+    @GetMapping("/get-policy/{id}")
+    public ResponseEntity<?> getPolicyById(@PathVariable Long id, HttpServletRequest httpRequest) {
+        String token = httpRequest.getHeader("Authorization");
+
+        if (token == null || !token.startsWith("Bearer ")) {
+            log.error("Invalid or missing token");
+            return new ResponseEntity<>("Invalid or missing token", HttpStatus.UNAUTHORIZED);
+        }
+
+        token = token.substring(7);
+
+        try {
+            String email = jwtUtil.extractEmail(token);
+            User user = userRepository.findByEmail(email).orElseThrow(
+                    () -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found"));
+            ResponseEntity<?> policy  = userService.getPolicyById(id, user);
+            return new ResponseEntity<>(policy, HttpStatus.OK);
+        } catch (Exception e) {
+            log.error(e.getMessage());
+            return new ResponseEntity<>(e.getMessage(), HttpStatus.INTERNAL_SERVER_ERROR);
+        }
+    }
+
     @DeleteMapping("/delete-policy/{id}")
     public ResponseEntity<?> deletePolicy(@PathVariable Long id, HttpServletRequest httpRequest) {
         String token = httpRequest.getHeader("Authorization");
