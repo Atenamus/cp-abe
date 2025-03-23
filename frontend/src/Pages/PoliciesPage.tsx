@@ -113,7 +113,7 @@ export default function PoliciesPage() {
     <div className="container mx-auto py-8 px-4 min">
       <div className="flex items-center justify-between mb-8">
         <div>
-          <h1 className="text-2xl font-semibold">Access Policies</h1>
+          <h1 className="text-3xl font-bold">Access Policies</h1>
           <p className="text-muted-foreground text-sm mt-1">
             Manage attribute-based access control policies
           </p>
