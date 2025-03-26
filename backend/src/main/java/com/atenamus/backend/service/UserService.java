@@ -23,6 +23,9 @@ public class UserService {
     @Autowired
     private PolicyRepository policyRepository;
 
+    @Autowired
+    private ActivityService activityService;
+
     public ResponseEntity<UserPolicy> createPolicy(CreatePolicy policy, User user) {
         UserPolicy userPolicy = new UserPolicy();
         userPolicy.setPolicyName(policy.policyName);
@@ -33,6 +36,12 @@ public class UserService {
         userPolicy = policyRepository.save(userPolicy);
 
         if (userPolicy.getId() != null) {
+            // Track policy creation activity
+            activityService.trackActivity(
+                    user.getId(),
+                    "policy_created",
+                    policy.policyName,
+                    "Policy created: " + policy.policyExpression);
             log.info("Create policy successful");
             return new ResponseEntity<>(userPolicy, HttpStatus.CREATED);
         } else {
@@ -41,62 +50,56 @@ public class UserService {
     }
 
     public ResponseEntity<?> getPolicy(User user) {
-        List<UserPolicy> policy = policyRepository.findByUserId(user.getId());
-
-        if (!policy.isEmpty()) {
-            return new ResponseEntity<>(policy, HttpStatus.OK);
-        } else {
-            return new ResponseEntity<>("No policy found", HttpStatus.NOT_FOUND);
-        }
+        List<UserPolicy> policies = policyRepository.findByUserId(user.getId());
+        return new ResponseEntity<>(policies, policies.isEmpty() ? HttpStatus.NOT_FOUND : HttpStatus.OK);
     }
 
     public ResponseEntity<?> deletePolicy(Long id, User user) {
         Optional<UserPolicy> policy = policyRepository.findById(id);
 
-        if (policy.isPresent()) {
-            if (policy.get().getUserId().equals(user.getId())) {
-                policyRepository.deleteById(id);
-                return new ResponseEntity<>(HttpStatus.OK);
-            } else {
-                return new ResponseEntity<>("Policy not found", HttpStatus.NOT_FOUND);
-            }
-        } else {
-            return new ResponseEntity<>("Policy not found", HttpStatus.NOT_FOUND);
+        if (policy.isPresent() && policy.get().getUserId().equals(user.getId())) {
+            UserPolicy policyToDelete = policy.get();
+            policyRepository.deleteById(id);
+
+            // Track policy deletion activity
+            activityService.trackActivity(
+                    user.getId(),
+                    "policy_deleted",
+                    policyToDelete.getPolicyName(),
+                    "Policy deleted");
+            return new ResponseEntity<>(HttpStatus.OK);
         }
+        return new ResponseEntity<>("Policy not found", HttpStatus.NOT_FOUND);
     }
 
     public ResponseEntity<?> updatePolicy(Long id, CreatePolicy request, User user) {
         Optional<UserPolicy> policy = policyRepository.findById(id);
 
-        if (policy.isPresent()) {
-            if (policy.get().getUserId().equals(user.getId())) {
-                UserPolicy userPolicy = policy.get();
-                userPolicy.setPolicyName(request.policyName);
-                userPolicy.setPolicyDescription(request.policyDescription);
-                userPolicy.setPolicyExpression(request.policyExpression);
+        if (policy.isPresent() && policy.get().getUserId().equals(user.getId())) {
+            UserPolicy userPolicy = policy.get();
+            userPolicy.setPolicyName(request.policyName);
+            userPolicy.setPolicyDescription(request.policyDescription);
+            userPolicy.setPolicyExpression(request.policyExpression);
 
-                userPolicy = policyRepository.save(userPolicy);
+            userPolicy = policyRepository.save(userPolicy);
 
-                return new ResponseEntity<>(userPolicy, HttpStatus.OK);
-            } else {
-                return new ResponseEntity<>("Policy not found", HttpStatus.NOT_FOUND);
-            }
-        } else {
-            return new ResponseEntity<>("Policy not found", HttpStatus.NOT_FOUND);
+            // Track policy update activity
+            activityService.trackActivity(
+                    user.getId(),
+                    "policy_updated",
+                    request.policyName,
+                    "Policy updated: " + request.policyExpression);
+            return new ResponseEntity<>(userPolicy, HttpStatus.OK);
         }
+        return new ResponseEntity<>("Policy not found", HttpStatus.NOT_FOUND);
     }
 
     public ResponseEntity<?> getPolicyById(Long id, User user) {
         Optional<UserPolicy> policy = policyRepository.findById(id);
 
-        if (policy.isPresent()) {
-            if (policy.get().getUserId().equals(user.getId())) {
-                return new ResponseEntity<>(policy.get(), HttpStatus.OK);
-            } else {
-                return new ResponseEntity<>("Policy not found", HttpStatus.NOT_FOUND);
-            }
-        } else {
-            return new ResponseEntity<>("Policy not found", HttpStatus.NOT_FOUND);
+        if (policy.isPresent() && policy.get().getUserId().equals(user.getId())) {
+            return new ResponseEntity<>(policy.get(), HttpStatus.OK);
         }
+        return new ResponseEntity<>("Policy not found", HttpStatus.NOT_FOUND);
     }
 }

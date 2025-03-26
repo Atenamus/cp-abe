@@ -24,7 +24,10 @@ import com.atenamus.backend.models.ElementBoolean;
 import com.atenamus.backend.models.MasterSecretKey;
 import com.atenamus.backend.models.PrivateKey;
 import com.atenamus.backend.models.PublicKey;
+import com.atenamus.backend.models.User;
+import com.atenamus.backend.repository.UserRepository;
 import com.atenamus.backend.security.JwtUtil;
+import com.atenamus.backend.service.ActivityService;
 import com.atenamus.backend.service.KeyInitializationService;
 import com.atenamus.backend.util.AESCoder;
 import com.atenamus.backend.util.FileUtil;
@@ -60,6 +63,12 @@ public class CpabeController {
 
     @Autowired
     private JwtUtil jwtUtil;
+
+    @Autowired
+    private ActivityService activityService;
+
+    @Autowired
+    private UserRepository userRepository;
 
     public CpabeController() {
         this.projectRoot = Paths.get("").toAbsolutePath();
@@ -119,7 +128,8 @@ public class CpabeController {
     }
 
     @PostMapping("/keygen")
-    public ResponseEntity<byte[]> keygen(@RequestBody Map<String, Object> request) {
+    public ResponseEntity<byte[]> keygen(@RequestBody Map<String, Object> request,
+            @RequestHeader("Authorization") String authHeader) {
         File tempFile = null;
         try {
             // Validate input
@@ -177,6 +187,20 @@ public class CpabeController {
             headers.add("Pragma", "no-cache");
             headers.add("Expires", "0");
             headers.add("X-Content-Type-Options", "nosniff");
+
+            // Get user info from auth header
+            String token = authHeader.replace("Bearer ", "");
+            String email = jwtUtil.extractEmail(token);
+            User user = userRepository.findByEmail(email)
+                    .orElseThrow(() -> new RuntimeException("User not found"));
+
+            // Track key generation activity
+            activityService.trackActivity(
+                    user.getId(),
+                    "key_generated",
+                    "Private Key",
+                    "Generated private key with attributes: " + String.join(", ", attributes));
+
             System.out.println("Private key generated successfully: " + privateKeyName);
             return new ResponseEntity<>(privateKeyBytes, headers, HttpStatus.OK);
         } catch (IOException | NoSuchAlgorithmException e) {
@@ -195,6 +219,9 @@ public class CpabeController {
             @RequestParam("policy") String policy,
             @RequestHeader("Authorization") String authHeader) {
         try {
+            String email = jwtUtil.extractEmail(authHeader.replace("Bearer ", ""));
+            User user = userRepository.findByEmail(email)
+                    .orElseThrow(() -> new RuntimeException("User not found"));
             String userId = extractUserIdFromToken(authHeader.replace("Bearer ", ""));
             Path userPath = getUserSpecificPath(userId);
             Files.createDirectories(userPath);
@@ -233,6 +260,13 @@ public class CpabeController {
             headers.setContentType(MediaType.APPLICATION_OCTET_STREAM);
             headers.setContentDispositionFormData("attachment", originalFilename + ".cpabe");
 
+            // Track activity
+            activityService.trackActivity(
+                    user.getId(),
+                    "file_encrypted",
+                    originalFilename,
+                    "File encrypted with policy: " + policy);
+
             return new ResponseEntity<>(fullEncryptedFile, headers, HttpStatus.OK);
         } catch (Exception e) {
             e.printStackTrace();
@@ -248,6 +282,10 @@ public class CpabeController {
         Path tempEncryptedFile = null;
         Path tempKeyFile = null;
         try {
+            String email = jwtUtil.extractEmail(authHeader.replace("Bearer ", ""));
+            User user = userRepository.findByEmail(email)
+                    .orElseThrow(() -> new RuntimeException("User not found"));
+
             byte[] pubBytes = Files.readAllBytes(keyInitService.getPublicKeyPath());
             PublicKey pub = SerializeUtil.unserializePublicKey(pubBytes);
 
@@ -290,6 +328,14 @@ public class CpabeController {
                     }
 
                     headers.setContentDispositionFormData("attachment", outputFilename);
+
+                    // Track successful decryption
+                    activityService.trackActivity(
+                            user.getId(),
+                            "file_decrypted",
+                            encryptedFile.getOriginalFilename(),
+                            "File decrypted successfully");
+
                     return new ResponseEntity<>(plaintext, headers, HttpStatus.OK);
                 } catch (Exception e) {
                     return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)

@@ -16,6 +16,14 @@ export interface EncryptedFile {
     createdAt: string;
 }
 
+export interface UserActivity {
+    id: number;
+    type: 'file_encrypted' | 'file_decrypted' | 'policy_created' | 'policy_updated' | 'policy_deleted' | 'key_generated';
+    resourceName: string;
+    details: string;
+    timestamp: string;
+}
+
 export class ApiClient {
     private static async request<T>(
         endpoint: string,
@@ -126,5 +134,13 @@ export class ApiClient {
     
     static async downloadEncryptedFile(filename: string) {
         return this.get<Blob>(`/cpabe/files/download?filename=${encodeURIComponent(filename)}`);
+    }
+
+    static async getRecentActivities() {
+        return this.get<UserActivity[]>('/activity/recent');
+    }
+
+    static async listPolicies<T = any>() {
+        return this.get<T>('/user/get-policy');
     }
 }

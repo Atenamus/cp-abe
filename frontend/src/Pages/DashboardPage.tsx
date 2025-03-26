@@ -1,220 +1,238 @@
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
-import { Progress } from "@/components/ui/progress"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Key, Lock, FileText, Shield, AlertTriangle } from "lucide-react"
-import { Link } from "react-router"
+import { useState, useEffect } from "react";
+import { Link } from "react-router-dom";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import {
+  Key,
+  FileText,
+  Upload,
+  Download,
+  AlertTriangle,
+  LockKeyhole,
+} from "lucide-react";
+import { ApiClient, UserActivity } from "@/lib/api-client";
+import { EncryptedFilesTable } from "@/components/encrypted-files-table";
+import { toast } from "sonner";
+
+interface Policy {
+  id: string;
+  policyName: string;
+  policyDescription: string;
+  policyExpression: string;
+}
+
+interface PolicyResponse {
+  body: Policy[];
+}
 
 export default function DashboardPage() {
+  const [stats, setStats] = useState({
+    totalFiles: 0,
+    totalPolicies: 0,
+  });
+  const [activities, setActivities] = useState<UserActivity[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    async function fetchDashboardData() {
+      try {
+        const [filesResponse, policiesResponse, activitiesResponse] =
+          await Promise.all([
+            ApiClient.listEncryptedFiles(),
+            ApiClient.listPolicies<PolicyResponse>(),
+            ApiClient.getRecentActivities(),
+          ]);
+
+        const files = filesResponse.data || [];
+        const policies = policiesResponse.data?.body || [];
+        const recentActivities = activitiesResponse.data || [];
+
+        setStats({
+          totalFiles: files.length,
+          totalPolicies: policies.length,
+        });
+        setActivities(recentActivities);
+      } catch (error) {
+        console.error("Error fetching dashboard data:", error);
+        toast.error("Failed to load dashboard data");
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    fetchDashboardData();
+  }, []);
+
+  const getActivityIcon = (type: UserActivity["type"]) => {
+    switch (type) {
+      case "file_encrypted":
+        return <Upload className="h-4 w-4 text-green-500" />;
+      case "file_decrypted":
+        return <Download className="h-4 w-4 text-blue-500" />;
+      case "policy_created":
+      case "policy_updated":
+        return <LockKeyhole className="h-4 w-4 text-purple-500" />;
+      case "key_generated":
+        return <Key className="h-4 w-4 text-orange-500" />;
+      default:
+        return <FileText className="h-4 w-4 text-gray-500" />;
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-screen">
+        <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-primary"></div>
+      </div>
+    );
+  }
+
   return (
-    <div className="space-y-6 pl-12 mt-6">
+    <div className="space-y-6 mx-auto w-full max-w-7xl py-6">
       <div>
         <h1 className="text-3xl font-bold tracking-tight">Dashboard</h1>
-        <p className="text-muted-foreground">Welcome to your cryptographic access control dashboard.</p>
+        <p className="text-muted-foreground">
+          Manage your encrypted files securely with CP-ABE.
+        </p>
       </div>
 
-      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
-        <Card>
-          
+      <div className="grid gap-6 grid-cols-8 grid-rows-3">
+        <Card className="col-span-2 row-span-1">
           <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
-            <CardTitle className="text-sm font-medium">Total Keys</CardTitle>
-            <Key className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">12</div>
-            <p className="text-xs text-muted-foreground">+2 from last week</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
-            <CardTitle className="text-sm font-medium">Access Policies</CardTitle>
-            <Lock className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">8</div>
-            <p className="text-xs text-muted-foreground">+1 from last week</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
-            <CardTitle className="text-sm font-medium">Encrypted Files</CardTitle>
+            <CardTitle className="text-sm font-medium">
+              Encrypted Files
+            </CardTitle>
             <FileText className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">24</div>
-            <p className="text-xs text-muted-foreground">+5 from last week</p>
+            <div className="text-2xl font-bold">{stats.totalFiles}</div>
+            <p className="text-xs text-muted-foreground">
+              Total encrypted documents
+            </p>
           </CardContent>
         </Card>
-        <Card>
+        <Card className="col-span-2 row-span-1 col-start-3">
           <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
-            <CardTitle className="text-sm font-medium">Security Status</CardTitle>
-            <Shield className="h-4 w-4 text-muted-foreground" />
+            <CardTitle className="text-sm font-medium">
+              Active Policies
+            </CardTitle>
+            <LockKeyhole className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">Good</div>
-            <p className="text-xs text-muted-foreground">All systems operational</p>
+            <div className="text-2xl font-bold">{stats.totalPolicies}</div>
+            <p className="text-xs text-muted-foreground">
+              Access control policies created
+            </p>
           </CardContent>
         </Card>
-      </div>
 
-      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-7">
-        <Card className="col-span-4">
+        <Card className="col-span-4 row-span-2 col-start-1 row-start-">
+          <CardHeader>
+            <CardTitle>Quick Actions</CardTitle>
+            <CardDescription>Common operations</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-4">
+              <Button
+                asChild
+                className="w-full justify-start"
+                variant="outline"
+              >
+                <Link to="/dashboard/files/encrypt">
+                  <Upload className="mr-2 h-4 w-4" />
+                  Upload & Encrypt File
+                </Link>
+              </Button>
+              <Button
+                asChild
+                className="w-full justify-start"
+                variant="outline"
+              >
+                <Link to="/dashboard/policies/create">
+                  <LockKeyhole className="mr-2 h-4 w-4" />
+                  Create New Policy
+                </Link>
+              </Button>
+              <Button
+                asChild
+                className="w-full justify-start"
+                variant="outline"
+              >
+                <Link to="/dashboard/keys/generate">
+                  <Key className="mr-2 h-4 w-4" />
+                  Generate New Key
+                </Link>
+              </Button>
+            </div>
+
+            <div className="mt-6 rounded-lg border p-4 bg-muted/50">
+              <div className="flex items-center gap-2 text-sm">
+                <AlertTriangle className="h-4 w-4 text-yellow-600" />
+                <p className="text-muted-foreground">
+                  Your private keys and decrypted files are never stored on our
+                  servers.
+                </p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+        <Card className="col-span-4 row-span-3 col-start-5 row-start-1">
           <CardHeader>
             <CardTitle>Recent Activity</CardTitle>
-            <CardDescription>Your recent cryptographic operations</CardDescription>
+            <CardDescription>Latest actions in your workspace</CardDescription>
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
-              <div className="flex items-center gap-4">
-                <div className="rounded-full bg-primary/10 p-2">
-                  <Key className="h-4 w-4 text-primary" />
+              {activities.length === 0 ? (
+                <div className="text-center py-6 text-muted-foreground">
+                  No recent activity. Start by encrypting a file or creating a
+                  policy.
                 </div>
-                <div className="flex-1 space-y-1">
-                  <p className="text-sm font-medium">Generated new key pair</p>
-                  <p className="text-xs text-muted-foreground">2 hours ago</p>
-                </div>
-              </div>
-              <div className="flex items-center gap-4">
-                <div className="rounded-full bg-primary/10 p-2">
-                  <Lock className="h-4 w-4 text-primary" />
-                </div>
-                <div className="flex-1 space-y-1">
-                  <p className="text-sm font-medium">Created access policy</p>
-                  <p className="text-xs text-muted-foreground">Yesterday</p>
-                </div>
-              </div>
-              <div className="flex items-center gap-4">
-                <div className="rounded-full bg-primary/10 p-2">
-                  <FileText className="h-4 w-4 text-primary" />
-                </div>
-                <div className="flex-1 space-y-1">
-                  <p className="text-sm font-medium">Encrypted document</p>
-                  <p className="text-xs text-muted-foreground">2 days ago</p>
-                </div>
-              </div>
-              <div className="flex items-center gap-4">
-                <div className="rounded-full bg-primary/10 p-2">
-                  <FileText className="h-4 w-4 text-primary" />
-                </div>
-                <div className="flex-1 space-y-1">
-                  <p className="text-sm font-medium">Decrypted document</p>
-                  <p className="text-xs text-muted-foreground">3 days ago</p>
-                </div>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-        <Card className="col-span-3">
-          <CardHeader>
-            <CardTitle>Security Recommendations</CardTitle>
-            <CardDescription>Improve your cryptographic security</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-4">
-              <div className="flex items-start gap-4">
-                <AlertTriangle className="mt-0.5 h-5 w-5 text-amber-500" />
-                <div className="space-y-1">
-                  <p className="text-sm font-medium">Update master key</p>
-                  <p className="text-xs text-muted-foreground">
-                    Your master key is 90 days old. Consider updating it for enhanced security.
-                  </p>
-                  <Button size="sm" variant="outline" className="mt-2">
-                    Update Key
-                  </Button>
-                </div>
-              </div>
-              <div className="flex items-start gap-4">
-                <AlertTriangle className="mt-0.5 h-5 w-5 text-amber-500" />
-                <div className="space-y-1">
-                  <p className="text-sm font-medium">Review access policies</p>
-                  <p className="text-xs text-muted-foreground">
-                    You have 2 policies that haven't been reviewed in the last 6 months.
-                  </p>
-                  <Button size="sm" variant="outline" className="mt-2">
-                    Review Policies
-                  </Button>
-                </div>
-              </div>
+              ) : (
+                activities.map((activity) => (
+                  <div key={activity.id} className="flex items-center gap-4">
+                    <div className="rounded-full bg-primary/10 p-2">
+                      {getActivityIcon(activity.type)}
+                    </div>
+                    <div className="flex-1 space-y-1">
+                      <p className="text-sm font-medium leading-none">
+                        {activity.resourceName}
+                      </p>
+                      <div className="flex items-center text-xs text-muted-foreground">
+                        <span>
+                          {new Date(activity.timestamp).toLocaleString()}
+                        </span>
+                        {activity.details && (
+                          <>
+                            <span className="mx-2">•</span>
+                            <span>{activity.details}</span>
+                          </>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                ))
+              )}
             </div>
           </CardContent>
         </Card>
       </div>
 
-      <div>
-        <Tabs defaultValue="quick-actions">
-          <TabsList>
-            <TabsTrigger value="quick-actions">Quick Actions</TabsTrigger>
-            <TabsTrigger value="storage">Storage</TabsTrigger>
-          </TabsList>
-          <TabsContent value="quick-actions" className="space-y-4">
-            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-              <Button asChild className="h-24 flex-col gap-2">
-                <Link to="/dashboard/keys/generate">
-                  <Key className="h-5 w-5" />
-                  <span>Generate New Keys</span>
-                </Link>
-              </Button>
-              <Button asChild className="h-24 flex-col gap-2">
-                <Link to="/dashboard/policies/create">
-                  <Lock className="h-5 w-5" />
-                  <span>Create Access Policy</span>
-                </Link>
-              </Button>
-              <Button asChild className="h-24 flex-col gap-2">
-                <Link to="/dashboard/files/encrypt">
-                  <FileText className="h-5 w-5" />
-                  <span>Encrypt File</span>
-                </Link>
-              </Button>
-              <Button asChild className="h-24 flex-col gap-2">
-                <Link to="/dashboard/files/decrypt">
-                  <FileText className="h-5 w-5" />
-                  <span>Decrypt File</span>
-                </Link>
-              </Button>
-            </div>
-          </TabsContent>
-          <TabsContent value="storage">
-            <Card>
-              <CardHeader>
-                <CardTitle>Storage Usage</CardTitle>
-                <CardDescription>Your encrypted file storage usage</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-4">
-                  <div className="space-y-2">
-                    <div className="flex items-center justify-between text-sm">
-                      <div>Used Space</div>
-                      <div className="font-medium">1.25 GB of 5 GB</div>
-                    </div>
-                    <Progress value={25} />
-                  </div>
-                  <div className="pt-4">
-                    <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-                      <div className="space-y-2">
-                        <div className="text-sm font-medium">Documents</div>
-                        <div className="text-2xl font-bold">0.8 GB</div>
-                        <Progress value={64} className="h-2" />
-                      </div>
-                      <div className="space-y-2">
-                        <div className="text-sm font-medium">Images</div>
-                        <div className="text-2xl font-bold">0.3 GB</div>
-                        <Progress value={24} className="h-2" />
-                      </div>
-                      <div className="space-y-2">
-                        <div className="text-sm font-medium">Other</div>
-                        <div className="text-2xl font-bold">0.15 GB</div>
-                        <Progress value={12} className="h-2" />
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          </TabsContent>
-        </Tabs>
-      </div>
+      <Card>
+        <CardHeader>
+          <CardTitle>Encrypted Files</CardTitle>
+          <CardDescription>Manage your encrypted documents</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <EncryptedFilesTable />
+        </CardContent>
+      </Card>
     </div>
-  )
+  );
 }
-
