@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
@@ -17,11 +17,19 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { HelpCircle } from "lucide-react";
+import { auth } from "@/lib/auth";
 
 interface PolicySelectorProps {
   value?: string;
   onChange?: (value: string) => void;
   disabled?: boolean;
+}
+
+interface UserPolicy {
+  id: number;
+  policyName: string;
+  policyDescription: string;
+  policyExpression: string;
 }
 
 export function PolicySelector({
@@ -32,6 +40,44 @@ export function PolicySelector({
   const [policyType, setPolicyType] = useState("predefined");
   const [selectedPolicy, setSelectedPolicy] = useState("");
   const [customPolicy, setCustomPolicy] = useState("");
+  const [userPolicies, setUserPolicies] = useState<UserPolicy[]>([]);
+  const [selectedUserPolicy, setSelectedUserPolicy] = useState("");
+  const [isLoadingPolicies, setIsLoadingPolicies] = useState(false);
+
+  // Fetch user policies when component mounts or when policy type changes to custom
+  useEffect(() => {
+    if (policyType === "custom") {
+      fetchUserPolicies();
+    }
+  }, [policyType]);
+
+  const fetchUserPolicies = async () => {
+    setIsLoadingPolicies(true);
+    try {
+      const token = auth.getToken();
+      if (!token) return;
+
+      const response = await fetch(
+        "http://localhost:8080/api/user/get-policy",
+        {
+          method: "GET",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
+      const data = await response.json();
+
+      if (response.ok && data.body) {
+        setUserPolicies(Array.isArray(data.body) ? data.body : []);
+      }
+    } catch (error) {
+      console.error("Error fetching user policies:", error);
+    } finally {
+      setIsLoadingPolicies(false);
+    }
+  };
 
   const handlePolicyChange = (newValue: string) => {
     if (policyType === "predefined") {
@@ -39,8 +85,19 @@ export function PolicySelector({
         predefinedPolicies.find((p) => p.id === newValue)?.value || "";
       setSelectedPolicy(newValue);
       onChange?.(policy);
+    } else if (newValue.startsWith("user_")) {
+      // Handle selection of saved user policy
+      const policyId = Number(newValue.replace("user_", ""));
+      const selectedPolicy = userPolicies.find((p) => p.id === policyId);
+      if (selectedPolicy) {
+        setSelectedUserPolicy(newValue);
+        setCustomPolicy(selectedPolicy.policyExpression);
+        onChange?.(selectedPolicy.policyExpression);
+      }
     } else {
+      // Handle direct text input
       setCustomPolicy(newValue);
+      setSelectedUserPolicy("");
       onChange?.(newValue);
     }
   };
@@ -50,17 +107,17 @@ export function PolicySelector({
     {
       id: "managers_admins",
       label: "Managers OR Admins can access",
-      value: "role_manager OR role_admin",
+      value: "role_manager or role_admin",
     },
     {
       id: "engineering_finance",
       label: "Engineering AND Finance can access",
-      value: "department_engineering AND department_finance",
+      value: "department_engineering and department_finance",
     },
     {
       id: "senior_staff",
       label: "Senior staff (3+ years experience)",
-      value: "experience:3+",
+      value: "experience_gt_3",
     },
   ];
 
@@ -135,19 +192,62 @@ export function PolicySelector({
           )}
         </div>
       ) : (
-        <div className="space-y-2">
-          <Label htmlFor="custom-policy">Custom Policy Expression</Label>
-          <Textarea
-            id="custom-policy"
-            placeholder="Example: (role:Admin OR department:HR) AND experience:2+"
-            value={customPolicy}
-            onChange={(e) => handlePolicyChange(e.target.value)}
-            disabled={disabled}
-          />
-          <p className="text-xs text-muted-foreground">
-            Use attribute:value format with AND, OR operators. Parentheses can
-            be used for grouping.
-          </p>
+        <div className="space-y-4">
+          {userPolicies.length > 0 && (
+            <div className="space-y-2">
+              <Label htmlFor="user-policy">Select Saved Policy</Label>
+              <Select
+                value={selectedUserPolicy}
+                onValueChange={handlePolicyChange}
+                disabled={disabled || isLoadingPolicies}
+              >
+                <SelectTrigger id="user-policy">
+                  <SelectValue
+                    placeholder={
+                      isLoadingPolicies
+                        ? "Loading policies..."
+                        : "Select a saved policy"
+                    }
+                  />
+                </SelectTrigger>
+                <SelectContent>
+                  {userPolicies.map((policy) => (
+                    <SelectItem key={policy.id} value={`user_${policy.id}`}>
+                      {policy.policyName}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+
+              {selectedUserPolicy && (
+                <div className="text-sm text-muted-foreground mt-2">
+                  Policy expression:{" "}
+                  <code className="bg-muted px-1 py-0.5 rounded text-xs">
+                    {customPolicy}
+                  </code>
+                </div>
+              )}
+            </div>
+          )}
+
+          <div className="space-y-2">
+            <Label htmlFor="custom-policy">
+              {userPolicies.length > 0
+                ? "Or Create Custom Policy"
+                : "Custom Policy Expression"}
+            </Label>
+            <Textarea
+              id="custom-policy"
+              placeholder="Example: (role:Admin OR department:HR) AND experience:2+"
+              value={customPolicy}
+              onChange={(e) => handlePolicyChange(e.target.value)}
+              disabled={disabled}
+            />
+            <p className="text-xs text-muted-foreground">
+              Use attribute:value format with AND, OR operators. Parentheses can
+              be used for grouping.
+            </p>
+          </div>
         </div>
       )}
     </div>

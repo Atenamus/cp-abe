@@ -16,11 +16,11 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 
 const attributeOptions = [
-  { id: "department_HR", label: "HR Department" },
-  { id: "department_Engineering", label: "Engineering Department" },
-  { id: "department_Finance", label: "Finance Department" },
-  { id: "role_Admin", label: "Admin Role" },
-  { id: "role_Manager", label: "Manager Role" },
+  { id: "department_hr", label: "HR Department" },
+  { id: "department_engineering", label: "Engineering Department" },
+  { id: "department_finance", label: "Finance Department" },
+  { id: "role_admin", label: "Admin Role" },
+  { id: "role_manager", label: "Manager Role" },
   { id: "experience_gt_2", label: "2+ Years Experience" },
   { id: "experience_gt_5", label: "5+ Years Experience" },
 ];

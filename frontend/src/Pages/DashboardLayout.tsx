@@ -77,7 +77,9 @@ export default function DashboardLayout() {
             </BreadcrumbList>
           </Breadcrumb>
         </header>
-        <Outlet />
+        <main className="px-10">
+          <Outlet />
+        </main>
       </SidebarInset>
     </SidebarProvider>
   );
