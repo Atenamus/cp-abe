@@ -9,7 +9,7 @@ import {
 import { ArrowLeft } from "lucide-react";
 import { Link, useNavigate } from "react-router";
 
-export default function LoginPage() {
+export default function SignUpPage() {
   const navigate = useNavigate();
 
   const handleSignup = (data: {
@@ -20,7 +20,7 @@ export default function LoginPage() {
   }) => {
     // In a real app, we would store the user data in state management or send it to the server
     // For now, we'll just navigate to the key generation page
-    navigate("/onboarding/get-key");
+    navigate("/dashboard");
   };
 
   return (

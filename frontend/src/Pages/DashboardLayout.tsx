@@ -1,3 +1,4 @@
+import * as React from "react";
 import { AppSidebar } from "@/components/app-sidebar";
 import {
   Breadcrumb,
@@ -13,9 +14,37 @@ import {
   SidebarProvider,
   SidebarTrigger,
 } from "@/components/ui/sidebar";
-import { Outlet } from "react-router";
+import { Link, Outlet, useLocation } from "react-router-dom";
+
+const routeToLabel: Record<string, string> = {
+  dashboard: "Dashboard",
+  files: "File Management",
+  keys: "Key Management",
+  generate: "Generate",
+  policies: "Policies",
+  create: "Create",
+  encrypt: "Encrypt",
+  decrypt: "Decrypt",
+};
 
 export default function DashboardLayout() {
+  const location = useLocation();
+  const pathSegments = location.pathname
+    .split("/")
+    .filter((segment) => segment !== "");
+
+  const breadcrumbs = pathSegments.map((segment, index) => {
+    const label = routeToLabel[segment] || segment;
+    const path = "/" + pathSegments.slice(0, index + 1).join("/");
+    const isLast = index === pathSegments.length - 1;
+
+    return {
+      label,
+      path,
+      isLast,
+    };
+  });
+
   return (
     <SidebarProvider
       style={
@@ -26,24 +55,31 @@ export default function DashboardLayout() {
     >
       <AppSidebar />
       <SidebarInset>
-        <header className="flex h-16 shrink-0 items-center gap-2 px-4">
+        <header className="flex pt-6 shrink-0 items-center gap-2 px-4">
           <SidebarTrigger className="-ml-1" />
-          <Separator orientation="vertical" className="mr-2 h-4" />
+          <Separator orientation="vertical" />
           <Breadcrumb>
             <BreadcrumbList>
-              <BreadcrumbItem className="hidden md:block">
-                <BreadcrumbLink href="#">
-                  Building Your Application
-                </BreadcrumbLink>
-              </BreadcrumbItem>
-              <BreadcrumbSeparator className="hidden md:block" />
-              <BreadcrumbItem>
-                <BreadcrumbPage>Data Fetching</BreadcrumbPage>
-              </BreadcrumbItem>
+              {breadcrumbs.map((crumb) => (
+                <React.Fragment key={crumb.path}>
+                  <BreadcrumbItem>
+                    {crumb.isLast ? (
+                      <BreadcrumbPage>{crumb.label}</BreadcrumbPage>
+                    ) : (
+                      <BreadcrumbLink asChild>
+                        <Link to={crumb.path}>{crumb.label}</Link>
+                      </BreadcrumbLink>
+                    )}
+                  </BreadcrumbItem>
+                  {!crumb.isLast && <BreadcrumbSeparator />}
+                </React.Fragment>
+              ))}
             </BreadcrumbList>
           </Breadcrumb>
         </header>
-        <Outlet />
+        <main className="px-10">
+          <Outlet />
+        </main>
       </SidebarInset>
     </SidebarProvider>
   );

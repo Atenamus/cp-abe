@@ -1,25 +1,25 @@
 import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { CheckCircle, Download, ShieldAlert, UserCircle2 } from "lucide-react";
-import { Card, CardContent } from "@/components/ui/card";
+import { CheckCircle, Download, ShieldAlert, FileIcon } from "lucide-react";
 
 interface DecryptionResultProps {
-  success: boolean | null;
-  fileName: string;
-  userData: {
-    name: string;
-    attributes: string[];
-  };
-  onTryAnother: () => void;
+  success?: boolean | null;
+  decryptedFileUrl?: String;
+  originalFileName?: string;
+  onReset?: () => void;
+  handleDownload?: () => void;
 }
 
 export function DecryptionResult({
   success,
-  fileName,
-  userData,
-  onTryAnother,
+  decryptedFileUrl,
+  originalFileName,
+  onReset,
+  handleDownload,
 }: DecryptionResultProps) {
   if (success === null) {
+    console.log("Decrypted File", decryptedFileUrl);
+
     return (
       <div className="flex flex-col items-center justify-center py-6 space-y-4">
         <div className="h-12 w-12 rounded-full border-4 border-primary border-t-transparent animate-spin" />
@@ -46,13 +46,38 @@ export function DecryptionResult({
             </p>
           </div>
 
-          <Button className="mt-4">
-            <Download className="mr-2 h-4 w-4" />
-            Download Decrypted File
-          </Button>
+          {decryptedFileUrl && (
+            <>
+              <div className="w-full max-w-sm p-4 border rounded-md bg-muted/50">
+                <div className="flex items-center space-x-3 mb-3">
+                  <FileIcon className="h-5 w-5 text-primary" />
+                  <div className="text-sm">
+                    <div className="font-medium">{originalFileName}</div>
+                  </div>
+                </div>
+                <div className="text-sm">
+                  <div>
+                    <span className="font-medium">Decrypted on:</span>{" "}
+                    {new Date().toLocaleString()}
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex flex-col sm:flex-row gap-4 w-full max-w-sm">
+                <Button className="flex-1" onClick={handleDownload}>
+                  <Download className="mr-2 h-4 w-4" />
+                  Download Decrypted File
+                </Button>
+
+                <Button variant="outline" className="flex-1" onClick={onReset}>
+                  Decrypt Another File
+                </Button>
+              </div>
+            </>
+          )}
         </div>
       ) : (
-        <div className="flex flex-col items-center justify-center py-4 space-y-4">
+        <div className="max-w-6xl flex flex-col items-center justify-center py-12 space-y-4">
           <div className="rounded-full bg-destructive/10 p-3">
             <ShieldAlert className="h-6 w-6 text-destructive" />
           </div>
@@ -67,47 +92,23 @@ export function DecryptionResult({
             </p>
           </div>
 
-          <Alert variant="destructive" className="mt-4">
+          {/* <Alert variant="destructive" className="mt-4">
             <AlertTitle>Permission Error</AlertTitle>
             <AlertDescription>
               The file requires attributes that are not present in your private
               key.
             </AlertDescription>
-          </Alert>
+          </Alert> */}
+
+          <Button
+            variant="outline"
+            onClick={onReset}
+            className="w-full max-w-sm"
+          >
+            Try Different Key
+          </Button>
         </div>
       )}
-
-      <Card>
-        <CardContent className="p-4">
-          <div className="space-y-4">
-            <div className="flex items-center">
-              <UserCircle2 className="h-5 w-5 mr-2" />
-              <span className="font-medium">Current User</span>
-            </div>
-
-            <div className="text-sm space-y-1">
-              <div>
-                <span className="font-medium">Name:</span> {userData.name}
-              </div>
-              <div>
-                <span className="font-medium">Attributes:</span>{" "}
-                {userData.attributes.map((attr, i) => (
-                  <span
-                    key={i}
-                    className="inline-block bg-muted px-2 py-1 rounded text-xs mr-1 mb-1"
-                  >
-                    {attr}
-                  </span>
-                ))}
-              </div>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-
-      <Button variant="outline" onClick={onTryAnother} className="w-full">
-        Try as Another User
-      </Button>
     </div>
   );
 }

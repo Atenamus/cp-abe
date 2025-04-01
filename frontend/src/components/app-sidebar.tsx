@@ -1,9 +1,10 @@
-import * as React from "react"
-import { GalleryVerticalEnd } from "lucide-react"
+import * as React from "react";
+import { GalleryVerticalEnd } from "lucide-react";
 
 import {
   Sidebar,
   SidebarContent,
+  SidebarFooter,
   SidebarGroup,
   SidebarHeader,
   SidebarMenu,
@@ -12,8 +13,11 @@ import {
   SidebarMenuSub,
   SidebarMenuSubButton,
   SidebarMenuSubItem,
-} from "@/components/ui/sidebar"
-import { useLocation } from "react-router";
+  SidebarRail,
+} from "@/components/ui/sidebar";
+import { Link, useLocation } from "react-router";
+import { auth } from "@/lib/auth.ts";
+import { Button } from "@/components/ui/button.tsx";
 
 const data = {
   navMain: [
@@ -40,16 +44,24 @@ const data = {
           title: "File Encryption",
           url: "/dashboard/files/encrypt",
         },
+        {
+          title: "File Decryption",
+          url: "/dashboard/files/decrypt",
+        },
       ],
     },
   ],
+};
+
+function handleLogout() {
+  auth.logout();
 }
 
 export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   const location = useLocation();
-  
+
   return (
-    <Sidebar variant="floating" {...props}>
+    <Sidebar variant="inset" {...props}>
       <SidebarHeader>
         <SidebarMenu>
           <SidebarMenuItem>
@@ -59,8 +71,8 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
                   <GalleryVerticalEnd className="size-4" />
                 </div>
                 <div className="flex flex-col gap-0.5 leading-none">
-                  <span className="font-medium">Documentation</span>
-                  <span className="">v1.0.0</span>
+                  <span className="font-medium">CP-ABE</span>
+                  {/* <span className="">v1.0.0</span> */}
                 </div>
               </a>
             </SidebarMenuButton>
@@ -76,9 +88,11 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
                   <SidebarMenuSub className="ml-0 border-l-0 px-1.5">
                     {item.items.map((subItem) => (
                       <SidebarMenuSubItem key={subItem.title}>
-                        <SidebarMenuSubButton asChild isActive={location.pathname === subItem.url}
+                        <SidebarMenuSubButton
+                          asChild
+                          isActive={location.pathname === subItem.url}
                         >
-                          <a href={subItem.url}>{subItem.title}</a>
+                          <Link to={subItem.url}>{subItem.title}</Link>
                         </SidebarMenuSubButton>
                       </SidebarMenuSubItem>
                     ))}
@@ -89,6 +103,12 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
           </SidebarMenu>
         </SidebarGroup>
       </SidebarContent>
+      <SidebarFooter>
+        <Button variant={"default"} onClick={handleLogout}>
+          Logout
+        </Button>
+      </SidebarFooter>
+      <SidebarRail />
     </Sidebar>
-  )
+  );
 }

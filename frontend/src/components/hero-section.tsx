@@ -3,11 +3,12 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Menu, X } from "lucide-react";
 import { Link } from "react-router";
+import dashboardImage from "../assets/image.png";
 
 const menuItems = [
-  { name: "Features", href: "#" },
-  { name: "How It Works", href: "#" },
-  { name: "Docs", href: "#" },
+  // { name: "Features", href: "#" },
+  // { name: "How It Works", href: "#" },
+  // { name: "Docs", href: "#" },
 ];
 
 export default function HeroSection() {
@@ -67,10 +68,7 @@ export default function HeroSection() {
 
                 <div className="flex w-full flex-col space-y-3 sm:flex-row sm:gap-3 sm:space-y-0 md:w-fit lg:border-l lg:pl-6">
                   <Button asChild variant="outline" size="sm">
-                    <a
-                      href="#try-it-now"
-                      onClick={scrollToElement("try-it-now")}
-                    >
+                    <a href="/onboarding/sign-up">
                       <span>Try It Now</span>
                     </a>
                   </Button>
@@ -109,7 +107,7 @@ export default function HeroSection() {
               </p>
 
               <Button asChild size="lg">
-                <a href="#try-it-now" onClick={scrollToElement("try-it-now")}>
+                <a href="/onboarding/sign-up">
                   <span className="btn-label">Try It Now</span>
                 </a>
               </Button>
@@ -148,7 +146,7 @@ export default function HeroSection() {
 
                   <img
                     className="rounded-(--radius) z-1 relative border dark:hidden"
-                    src="https://www.launchuicomponents.com/app-light.png"
+                    src={dashboardImage}
                     alt="tailus ui hero section"
                     width={2880}
                     height={2074}

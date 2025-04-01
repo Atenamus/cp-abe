@@ -7,14 +7,12 @@
 ## High Priority (Core Functionality)
 
 - [ ] Implement exception handling with meaningful error messages for all CP-ABE operations.
-- [ ] Validate all input parameters to prevent security issues and ensure correct CP-ABE operation.
-- [ ] Implement file management service to handle storage, retrieval, and cleanup of keys and encrypted files.
+- [ ] Implement file and key management service to handle storage, retrieval, and cleanup of keys and encrypted files.
+- [ ] Script/Function to run /setup step, if pub, msk is missing re run /setup
 - [ ] Create backend integration tests to validate core cryptographic functions.
 
 ## Security Features (implement early)
 
-- [ ] Implement JWT authentication for securing API access.
-- [ ] Implement secure key storage using encryption or secure storage services.
 - [ ] Add structured logging system for all operations, errors, and security events.
 - [ ] Create rate limiting for API endpoints to prevent brute force attacks.
 
@@ -60,7 +58,9 @@
 
 ## Change Log
 
-- [X] 17/03/2025: Implement Decrypt API endpoint: Create endpoint for decrypting files using private keys.
+- [x] Key Management: Private Key Download from frontend
+- [x] Authentication: JWT based auth with login and register endpoints
+- [x] 17/03/2025: Implement Decrypt API endpoint: Create endpoint for decrypting files using private keys.
 - [x] 16/03/2025 (Tushar Agrawal): Created basic onboarding flow ui
 - [x] 16/03/2025 (Tushar Agrawal): Created landing and authentication pages for the website.
 - [x] 14/03/2025 (R Lalith): Implemented key management UI to view, download, and manage public/master/private keys.

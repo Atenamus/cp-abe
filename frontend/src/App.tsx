@@ -4,39 +4,38 @@ import FeaturesSection from "./components/features";
 import CallToAction from "./components/call-to-action";
 import FooterSection from "./components/footer";
 import { HowItWorks } from "./components/how-it-works";
-
+import accessPolicy from "./assets/access-policy.jpg";
+import encryption from "./assets/data-encryption.jpg";
+import attribute from "./assets/attribute.jpg";
+import access from "./assets/update-access.jpg";
 const features = [
   {
     step: "Step 1",
     title: "Define Access Policies",
     content:
       "Create encryption policies that determine who can access specific data based on attributes.",
-    image:
-      "https://images.unsplash.com/photo-1723958929247-ef054b525153?q=80&w=2070&auto=format&fit=crop",
+    image: accessPolicy,
   },
   {
     step: "Step 2",
     title: "Encrypt the Data",
     content:
       "Apply CP-ABE encryption to secure data while ensuring controlled access without central authority.",
-    image:
-      "https://images.unsplash.com/photo-1723931464622-b7df7c71e380?q=80&w=2070&auto=format&fit=crop",
+    image: encryption,
   },
   {
     step: "Step 3",
     title: "Attribute-Based Decryption",
     content:
       "Users with matching attributes decrypt the data while unauthorized users remain restricted.",
-    image:
-      "https://images.unsplash.com/photo-1725961476494-efa87ae3106a?q=80&w=2070&auto=format&fit=crop",
+    image: attribute,
   },
   {
     step: "Step 4",
     title: "Manage and Update Access",
     content:
       "Dynamically update encryption policies to manage access control efficiently over time.",
-    image:
-      "https://images.unsplash.com/photo-1723931464622-b7df7c71e380?q=80&w=2070&auto=format&fit=crop",
+    image: access,
   },
 ];
 
@@ -52,7 +51,7 @@ function App() {
         autoPlayInterval={4000}
         imageHeight="h-[500px]"
       />
-      <CallToAction />
+      {/* <CallToAction /> */}
       <FooterSection />
     </>
   );

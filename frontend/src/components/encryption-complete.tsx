@@ -1,12 +1,30 @@
 import { Button } from "@/components/ui/button";
 import { CheckCircle, Download } from "lucide-react";
-import { Link } from "react-router";
 
 interface EncryptionCompleteProps {
   fileName: string;
+  encryptedFile: Blob;
+  originalFileName: string;
+  onReset: () => void;
 }
 
-export function EncryptionComplete({ fileName }: EncryptionCompleteProps) {
+export function EncryptionComplete({
+  fileName,
+  encryptedFile,
+  originalFileName,
+  onReset,
+}: EncryptionCompleteProps) {
+  const handleDownload = () => {
+    const url = URL.createObjectURL(encryptedFile);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `${originalFileName}.cpabe`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  };
+
   return (
     <div className="flex flex-col items-center justify-center py-6 space-y-6">
       <div className="rounded-full bg-primary/10 p-4">
@@ -27,7 +45,8 @@ export function EncryptionComplete({ fileName }: EncryptionCompleteProps) {
             <span className="font-medium">File:</span> {fileName}
           </div>
           <div>
-            <span className="font-medium">Size:</span> 256 KB (encrypted)
+            <span className="font-medium">Size:</span>{" "}
+            {encryptedFile.size / 1024} KB (encrypted)
           </div>
           <div>
             <span className="font-medium">Encrypted on:</span>{" "}
@@ -37,16 +56,14 @@ export function EncryptionComplete({ fileName }: EncryptionCompleteProps) {
       </div>
 
       <div className="flex flex-col sm:flex-row gap-4 w-full max-w-sm">
-        <Button className="flex-1">
+        <Button className="flex-1" onClick={handleDownload}>
           <Download className="mr-2 h-4 w-4" />
           Download Encrypted File
         </Button>
 
-        <Link to="/onboarding/decrypt" className="flex-1">
-          <Button variant="outline" className="w-full">
-            Try Decrypting
-          </Button>
-        </Link>
+        <Button variant="outline" className="flex-1" onClick={onReset}>
+          Encrypt Another File
+        </Button>
       </div>
     </div>
   );
