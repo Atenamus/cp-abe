@@ -1,5 +1,6 @@
 package com.atenamus.backend.controller;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -115,6 +116,41 @@ public class MultiAuthorityABEController {
         } catch (Exception e) {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body("Encryption failed: " + e.getMessage());
+        }
+    }
+
+    @PostMapping(value = "/decrypt", consumes = MediaType.MULTIPART_FORM_DATA_VALUE, produces = MediaType.APPLICATION_OCTET_STREAM_VALUE)
+    public ResponseEntity<?> decrypt(
+            @RequestPart("ciphertext") MultipartFile ciphertextFile,
+            @RequestPart("keys") List<MultipartFile> keyFiles) {
+        try {
+            byte[] ciphertextBytes = ciphertextFile.getBytes();
+            List<byte[]> userKeyBytesList = new ArrayList<>();
+            for (MultipartFile keyFile : keyFiles) {
+                userKeyBytesList.add(keyFile.getBytes());
+            }
+
+            byte[] decryptedData = abeService.decrypt(ciphertextBytes, userKeyBytesList);
+
+            // Prepare the response for file download
+            ByteArrayResource resource = new ByteArrayResource(decryptedData);
+            String originalFilename = ciphertextFile.getOriginalFilename().replace(".cpabe", "");
+            HttpHeaders headers = new HttpHeaders();
+            headers.add(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=" + originalFilename);
+            headers.add(HttpHeaders.CACHE_CONTROL, "no-cache, no-store, must-revalidate");
+            headers.add(HttpHeaders.PRAGMA, "no-cache");
+            headers.add(HttpHeaders.EXPIRES, "0");
+
+            return ResponseEntity.ok()
+                    .headers(headers)
+                    .contentLength(decryptedData.length)
+                    .contentType(MediaType.APPLICATION_OCTET_STREAM)
+                    .body(resource);
+        } catch (IllegalArgumentException | IllegalStateException e) {
+            return ResponseEntity.badRequest().body("Invalid input: " + e.getMessage());
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body("Decryption failed: " + e.getMessage());
         }
     }
 

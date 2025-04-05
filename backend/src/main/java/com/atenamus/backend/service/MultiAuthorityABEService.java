@@ -9,12 +9,15 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
+import java.math.BigInteger;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.security.MessageDigest;
 import java.security.SecureRandom;
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -37,6 +40,7 @@ import com.atenamus.backend.models.Ciphertext;
 import com.atenamus.backend.models.GlobalParameters;
 import com.atenamus.backend.models.UserSecretKey;
 import com.atenamus.backend.util.MultiABEPolicyParser;
+import com.atenamus.backend.util.MultiABEPolicyParser.PolicyResult;
 import com.atenamus.backend.util.PolicyParser;
 import com.atenamus.backend.util.RandomOracle;
 
@@ -358,6 +362,7 @@ public class MultiAuthorityABEService {
             Element g = gp.getGen();
             Field<Element> Zr = pairing.getZr();
             Field<Element> GT = pairing.getGT();
+            Field<Element> G1 = pairing.getG1();
 
             // Step 1: Generate AES key and encrypt file
             byte[] aesKey = new byte[32]; // 256-bit key
@@ -372,17 +377,13 @@ public class MultiAuthorityABEService {
             byte[] aesEncryptedData = aesCipher.doFinal(fileData);
 
             // Step 2: Parse policy to LSSS
-            MultiABEPolicyParser.AccessStructure accessStructure = MultiABEPolicyParser.parsePolicy(policy);
-            List<List<Integer>> accessMatrix = accessStructure.matrix;
-            List<String> rho = accessStructure.rho;
+            MultiABEPolicyParser parser = new MultiABEPolicyParser();
+            PolicyResult policyResult = parser.parse(policy);
+            List<List<Integer>> accessMatrix = policyResult.getAccessMatrix();
+            List<String> rho = policyResult.getRho();
 
             // Step 3: Encrypt AES key with CP-ABE
-            // Hash AES key to GT to ensure correct field
-            MessageDigest sha256 = MessageDigest.getInstance("SHA-256");
-            byte[] hashedKey = sha256.digest(aesKey); // 32 bytes
-            Element M = GT.newElementFromHash(hashedKey, 0, hashedKey.length).getImmutable();
-            logger.debug("M type: {}", M.getClass().getName()); // Verify GTFiniteElement
-
+            Element aesKeyElement = GT.newElementFromBytes(aesKey).getImmutable(); // Direct mapping to GT
             int l = accessMatrix.size();
             int n = accessMatrix.get(0).size();
 
@@ -415,9 +416,9 @@ public class MultiAuthorityABEService {
             }
 
             // Compute ciphertext components
-            Element e_g_g_s = pairing.pairing(g, g).powZn(s).getImmutable(); // GT
-            Element C = e_g_g_s.mul(M).getImmutable(); // GT * GT = GT
-            Element C_prime = g.powZn(s).getImmutable(); // G1
+            Element e_g_g_s = pairing.pairing(g, g).powZn(s).getImmutable();
+            Element C = aesKeyElement.mul(e_g_g_s).getImmutable(); // Encrypt AES key directly
+            Element C_prime = g.powZn(s).getImmutable();
 
             List<Ciphertext.CiphertextComponent> components = new ArrayList<>();
             for (int i = 0; i < l; i++) {
@@ -430,24 +431,21 @@ public class MultiAuthorityABEService {
                 }
 
                 AuthorityPublicKey pk = loadPublicKey(pkFileId, pairing);
-                Element e_g_g_alpha = pk.getE_g_g_alpha(); // GT
-                Element g_y = pk.getG_y(); // G1
+                Element g_y = pk.getG_y();
 
-                Element C_i = g.powZn(lambda[i]).mul(g_y.powZn(r[i].negate())).getImmutable(); // g^λ_i * (g^y_θ)^(-r_i)
-                Element D_i = g.powZn(r[i]).getImmutable(); // g^r_i
-                Element E_i = gp.applyFFunction(attribute).powZn(r[i]).getImmutable(); // F(ρ(i))^r_i
+                Element C_i = g.powZn(lambda[i]).mul(g_y.powZn(r[i].negate())).getImmutable();
+                Element D_i = g.powZn(r[i]).getImmutable();
+                Element E_i = gp.applyFFunction(attribute).powZn(r[i]).getImmutable();
 
                 components.add(new Ciphertext.CiphertextComponent(C_i, D_i, E_i, attribute));
             }
 
-            Ciphertext ct = new Ciphertext(aesEncryptedData, iv, C, C_prime, components);
-
-            // Serialize ciphertext
+            // Serialize ciphertext with PolicyResult
             ByteArrayOutputStream baos = new ByteArrayOutputStream();
             try (ObjectOutputStream oos = new ObjectOutputStream(baos)) {
                 oos.writeInt(aesEncryptedData.length);
                 oos.write(aesEncryptedData);
-                oos.write(iv); // 16 bytes
+                oos.write(iv);
                 oos.writeObject(C.toBytes());
                 oos.writeObject(C_prime.toBytes());
                 oos.writeInt(components.size());
@@ -457,6 +455,9 @@ public class MultiAuthorityABEService {
                     oos.writeObject(comp.getE_i().toBytes());
                     oos.writeUTF(comp.getAttribute());
                 }
+                // Serialize PolicyResult
+                oos.writeObject(accessMatrix);
+                oos.writeObject(rho);
             }
             logger.info("File encrypted successfully");
             return baos.toByteArray();
@@ -465,6 +466,217 @@ public class MultiAuthorityABEService {
             logger.error("Encryption failed", e);
             throw new RuntimeException("Encryption failed: " + e.getMessage(), e);
         }
+    }
+
+    public byte[] decrypt(byte[] ciphertextBytes, List<byte[]> userKeyBytesList) {
+        if (globalParamsFileId == null) {
+            throw new IllegalStateException("Global parameters not initialized. Run globalSetup first.");
+        }
+        if (ciphertextBytes == null || userKeyBytesList == null || userKeyBytesList.isEmpty()) {
+            throw new IllegalArgumentException("Ciphertext and user keys cannot be null or empty");
+        }
+
+        try {
+            // Step 1: Load Global Parameters
+            GlobalParameters gp = loadFromFile(globalParamsFileId);
+            Pairing pairing = gp.getPairing();
+            Element g = gp.getGen();
+            Field<Element> Zr = pairing.getZr();
+            Field<Element> GT = pairing.getGT();
+            Field<Element> G1 = pairing.getG1();
+
+            // Step 2: Deserialize Ciphertext
+            ByteArrayInputStream bais = new ByteArrayInputStream(ciphertextBytes);
+            ObjectInputStream ois = new ObjectInputStream(bais);
+            int aesDataLength = ois.readInt();
+            byte[] aesEncryptedData = new byte[aesDataLength];
+            ois.readFully(aesEncryptedData);
+            byte[] iv = new byte[16];
+            ois.readFully(iv);
+            Element C = GT.newElementFromBytes((byte[]) ois.readObject()).getImmutable();
+            Element C_prime = G1.newElementFromBytes((byte[]) ois.readObject()).getImmutable();
+            int componentsSize = ois.readInt();
+            List<Ciphertext.CiphertextComponent> components = new ArrayList<>();
+            for (int i = 0; i < componentsSize; i++) {
+                Element C_i = G1.newElementFromBytes((byte[]) ois.readObject()).getImmutable();
+                Element D_i = G1.newElementFromBytes((byte[]) ois.readObject()).getImmutable();
+                Element E_i = G1.newElementFromBytes((byte[]) ois.readObject()).getImmutable();
+                String attribute = ois.readUTF();
+                components.add(new Ciphertext.CiphertextComponent(C_i, D_i, E_i, attribute));
+            }
+            @SuppressWarnings("unchecked")
+            List<List<Integer>> accessMatrix = (List<List<Integer>>) ois.readObject();
+            @SuppressWarnings("unchecked")
+            List<String> rho = (List<String>) ois.readObject();
+            ois.close();
+
+            // Step 3: Load User Secret Keys
+            Map<String, UserSecretKey> userKeys = new HashMap<>();
+            String gid = null;
+            for (byte[] keyBytes : userKeyBytesList) {
+                bais = new ByteArrayInputStream(keyBytes);
+                ois = new ObjectInputStream(bais);
+                Element K_theta = G1.newElementFromBytes((byte[]) ois.readObject()).getImmutable();
+                Element L = G1.newElementFromBytes((byte[]) ois.readObject()).getImmutable();
+                @SuppressWarnings("unchecked")
+                Map<String, byte[]> K_i_bytes = (Map<String, byte[]>) ois.readObject();
+                Map<String, Element> K_i = new HashMap<>();
+                for (Map.Entry<String, byte[]> entry : K_i_bytes.entrySet()) {
+                    K_i.put(entry.getKey(), G1.newElementFromBytes(entry.getValue()).getImmutable());
+                }
+                String keyGid = ois.readUTF();
+                String authorityId = ois.readUTF();
+                if (gid == null)
+                    gid = keyGid;
+                else if (!gid.equals(keyGid)) {
+                    throw new IllegalArgumentException("All secret keys must have the same GID");
+                }
+                userKeys.put(authorityId, new UserSecretKey(K_theta, L, K_i, gid, authorityId));
+                ois.close();
+            }
+
+            // Step 4: Check Policy Satisfaction and Compute ω
+            List<Integer> satisfyingIndices = new ArrayList<>();
+            for (int i = 0; i < rho.size(); i++) {
+                String attr = rho.get(i);
+                String authId = mapAttributeToAuthority(attr);
+                UserSecretKey sk = userKeys.get(authId);
+                if (sk != null && sk.getK_i().containsKey(attr)) {
+                    satisfyingIndices.add(i);
+                }
+            }
+            List<Double> omega = solveForOmega(accessMatrix, satisfyingIndices);
+            if (omega == null) {
+                throw new IllegalStateException("User attributes do not satisfy the policy");
+            }
+
+            // Step 5: Decrypt ABE to Recover AES Key
+            Element recovered = GT.newOneElement();
+            for (int idx : satisfyingIndices) {
+                String attr = rho.get(idx);
+                String authId = mapAttributeToAuthority(attr);
+                UserSecretKey sk = userKeys.get(authId);
+                Ciphertext.CiphertextComponent comp = components.get(idx);
+                double w_i = omega.get(idx);
+                if (w_i == 0)
+                    continue;
+
+                Element K_i = sk.getK_i().get(attr);
+                Element num = pairing.pairing(comp.getC_i(), sk.getL()).mul(pairing.pairing(comp.getD_i(), K_i));
+                Element den = pairing.pairing(C_prime, sk.getK_theta());
+                Element term = num.div(den);
+                // Fix: Convert double w_i to BigInteger for Zr
+                Element w_i_Zr = Zr.newElement(BigInteger.valueOf((long) w_i)).getImmutable();
+                Element termPow = term.powZn(w_i_Zr);
+                recovered = recovered.mul(termPow).getImmutable();
+            }
+
+            Element aesKeyElement = C.div(recovered);
+            byte[] aesKey = aesKeyElement.toBytes();
+            if (aesKey.length > 32) {
+                byte[] truncatedKey = new byte[32];
+                System.arraycopy(aesKey, 0, truncatedKey, 0, 32);
+                aesKey = truncatedKey;
+            } else if (aesKey.length < 32) {
+                byte[] paddedKey = new byte[32];
+                System.arraycopy(aesKey, 0, paddedKey, 0, aesKey.length);
+                aesKey = paddedKey;
+            }
+
+            // Step 6: Decrypt AES Data
+            Cipher aesCipher = Cipher.getInstance("AES/CBC/PKCS5Padding");
+            SecretKeySpec keySpec = new SecretKeySpec(aesKey, "AES");
+            IvParameterSpec ivSpec = new IvParameterSpec(iv);
+            aesCipher.init(Cipher.DECRYPT_MODE, keySpec, ivSpec);
+            byte[] decryptedData = aesCipher.doFinal(aesEncryptedData);
+
+            logger.info("File decrypted successfully");
+            return decryptedData;
+
+        } catch (Exception e) {
+            logger.error("Decryption failed", e);
+            throw new RuntimeException("Decryption failed: " + e.getMessage(), e);
+        }
+    }
+
+    // Helper method to solve for ω (simplified Gaussian elimination)
+    private List<Double> solveForOmega(List<List<Integer>> A, List<Integer> indices) {
+        int rows = indices.size();
+        int cols = A.get(0).size();
+        if (rows < 1)
+            return null;
+
+        double[][] subMatrix = new double[rows][cols];
+        for (int i = 0; i < rows; i++) {
+            List<Integer> row = A.get(indices.get(i));
+            for (int j = 0; j < cols; j++) {
+                subMatrix[i][j] = row.get(j);
+            }
+        }
+        double[] target = new double[cols];
+        target[0] = 1;
+
+        for (int pivot = 0; pivot < Math.min(rows, cols); pivot++) {
+            int pivotRow = pivot;
+            while (pivotRow < rows && subMatrix[pivotRow][pivot] == 0)
+                pivotRow++;
+            if (pivotRow >= rows)
+                continue;
+
+            if (pivotRow != pivot) {
+                double[] temp = subMatrix[pivot];
+                subMatrix[pivot] = subMatrix[pivotRow];
+                subMatrix[pivotRow] = temp;
+            }
+
+            double pivotValue = subMatrix[pivot][pivot];
+            if (pivotValue == 0)
+                continue;
+
+            for (int j = 0; j < cols; j++) {
+                subMatrix[pivot][j] /= pivotValue;
+            }
+            target[pivot] /= pivotValue;
+
+            for (int i = 0; i < rows; i++) {
+                if (i != pivot && subMatrix[i][pivot] != 0) {
+                    double factor = subMatrix[i][pivot];
+                    for (int j = 0; j < cols; j++) {
+                        subMatrix[i][j] -= factor * subMatrix[pivot][j];
+                    }
+                    target[i] -= factor * target[pivot];
+                }
+            }
+        }
+
+        if (subMatrix[0][0] != 1 || target[0] != 1)
+            return null;
+        for (int j = 1; j < cols; j++) {
+            if (target[j] != 0)
+                return null;
+        }
+
+        List<Double> omega = new ArrayList<>(Collections.nCopies(A.size(), 0.0));
+        for (int i = 0; i < rows; i++) {
+            omega.set(indices.get(i), subMatrix[i][0]);
+        }
+        return omega;
+    }
+
+    // Simplified policy reconstruction (ideally, store policy in ciphertext)
+    private String reconstructPolicyFromRho(List<String> rho) {
+        // This is a placeholder; in production, store the policy string in the
+        // ciphertext
+        if (rho.size() == 1)
+            return rho.get(0);
+        StringBuilder policy = new StringBuilder("(");
+        for (int i = 0; i < rho.size(); i++) {
+            if (i > 0)
+                policy.append(" OR ");
+            policy.append(rho.get(i));
+        }
+        policy.append(")");
+        return policy.toString();
     }
 
     // Utility method to map attribute to authority (T function from paper)
