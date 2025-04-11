@@ -219,6 +219,15 @@ public class Cpabe {
         Element symmetricKey;
         ElementBoolean result = new ElementBoolean();
 
+        // Check if the key is not expired
+        if (prv.expirationDate < cipher.encryptionDate) {
+            result.key = null;
+            result.satisfy = false;
+            System.out.println("Key has expired. Key expiration: " + prv.expirationDate
+                    + ", Document encrypted: " + cipher.encryptionDate);
+            return result;
+        }
+
         Pairing pairing = pub.p;
         symmetricKey = pairing.getGT().newElement();
         t = pairing.getGT().newElement();
