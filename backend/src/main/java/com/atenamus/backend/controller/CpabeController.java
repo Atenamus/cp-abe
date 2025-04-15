@@ -41,6 +41,7 @@ import java.security.NoSuchAlgorithmException;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -144,8 +145,7 @@ public class CpabeController {
             // Validate each attribute
             for (String attr : attributes) {
                 if (attr == null || attr.trim().isEmpty()) {
-                    return ResponseEntity.badRequest()
-                            .body("Invalid attribute found".getBytes());
+                    return ResponseEntity.badRequest().body("Invalid attribute found".getBytes());
                 }
             }
 
@@ -171,6 +171,20 @@ public class CpabeController {
             MasterSecretKey msk = SerializeUtil.unserializeMasterSecretKey(pub, mskBytes);
 
             PrivateKey prv = cpabe.keygen(pub, msk, attributes);
+
+            // Add traceability information
+            String token = authHeader.replace("Bearer ", "");
+            String email = jwtUtil.extractEmail(token);
+            User user = userRepository.findByEmail(email)
+                    .orElseThrow(() -> new RuntimeException("User not found"));
+
+            prv.userId = user.getId().toString();
+            prv.userEmail = user.getEmail();
+            prv.timestamp = System.currentTimeMillis();
+
+            // Set expiration to 1 year from now
+            prv.expirationDate = System.currentTimeMillis() + (365L * 24 * 60 * 60 * 1000);
+
             byte[] prvBytes = SerializeUtil.serializePrivateKey(prv);
 
             // Write to temp file with better error handling
@@ -188,17 +202,8 @@ public class CpabeController {
             headers.add("Expires", "0");
             headers.add("X-Content-Type-Options", "nosniff");
 
-            // Get user info from auth header
-            String token = authHeader.replace("Bearer ", "");
-            String email = jwtUtil.extractEmail(token);
-            User user = userRepository.findByEmail(email)
-                    .orElseThrow(() -> new RuntimeException("User not found"));
-
             // Track key generation activity
-            activityService.trackActivity(
-                    user.getId(),
-                    "key_generated",
-                    "Private Key",
+            activityService.trackActivity(user.getId(), "key_generated", "Private Key",
                     "Generated private key with attributes: " + String.join(", ", attributes));
 
             System.out.println("Private key generated successfully: " + privateKeyName);
@@ -231,7 +236,8 @@ public class CpabeController {
 
             String originalFileType = null;
             if (originalFilename != null && originalFilename.contains(".")) {
-                originalFileType = originalFilename.substring(originalFilename.lastIndexOf('.') + 1);
+                originalFileType =
+                        originalFilename.substring(originalFilename.lastIndexOf('.') + 1);
             }
 
             byte[] pubBytes = Files.readAllBytes(keyInitService.getPublicKeyPath());
@@ -239,6 +245,9 @@ public class CpabeController {
 
             CipherKey cipherKey = cpabe.encrypt(pub, policy);
             Cipher cph = cipherKey.cph;
+
+            // Set encryption date to current time
+            cph.encryptionDate = System.currentTimeMillis();
 
             if (cph == null) {
                 return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
@@ -252,8 +261,8 @@ public class CpabeController {
             byte[] encryptedData = AESCoder.encrypt(symmetricKeyBytes, plaintext);
 
             Path encryptedFilePath = userPath.resolve(originalFilename + ".cpabe");
-            FileUtil.writeFullCpabeFile(encryptedFilePath.toString(), cphBuf, storedKeyBytes, encryptedData,
-                    originalFileType);
+            FileUtil.writeFullCpabeFile(encryptedFilePath.toString(), cphBuf, storedKeyBytes,
+                    encryptedData, originalFileType);
             byte[] fullEncryptedFile = Files.readAllBytes(encryptedFilePath);
 
             HttpHeaders headers = new HttpHeaders();
@@ -261,10 +270,7 @@ public class CpabeController {
             headers.setContentDispositionFormData("attachment", originalFilename + ".cpabe");
 
             // Track activity
-            activityService.trackActivity(
-                    user.getId(),
-                    "file_encrypted",
-                    originalFilename,
+            activityService.trackActivity(user.getId(), "file_encrypted", originalFilename,
                     "File encrypted with policy: " + policy);
 
             return new ResponseEntity<>(fullEncryptedFile, headers, HttpStatus.OK);
@@ -294,6 +300,8 @@ public class CpabeController {
             encryptedFile.transferTo(tempEncryptedFile.toFile());
 
             byte[][] encryptedData = FileUtil.readFullCpabeFile(tempEncryptedFile.toString());
+            System.out.println("Encrypted data sizes: AES=" + encryptedData[0].length + ", Key="
+                    + encryptedData[1].length + ", CPH=" + encryptedData[2].length);
 
             byte[] encryptedDataBuf = encryptedData[0];
             byte[] storedKeyBytes = encryptedData[1];
@@ -301,6 +309,7 @@ public class CpabeController {
             String originalFileType = null;
             if (encryptedData[3] != null && encryptedData[3].length > 0) {
                 originalFileType = new String(encryptedData[3]);
+                System.out.println("Original file type: " + originalFileType);
             }
 
             Cipher cipher = SerializeUtil.unserializeCipher(pub, cphBuf);
@@ -308,21 +317,47 @@ public class CpabeController {
             // Process private key
             tempKeyFile = Files.createTempFile("private_key_", ".dat");
             privateKeyFile.transferTo(tempKeyFile.toFile());
-            PrivateKey prv = SerializeUtil.unserializePrivateKey(pub, Files.readAllBytes(tempKeyFile));
+            PrivateKey prv =
+                    SerializeUtil.unserializePrivateKey(pub, Files.readAllBytes(tempKeyFile));
 
             ElementBoolean result = cpabe.decrypt(pub, prv, cipher);
 
             if (result.satisfy) {
                 try {
-                    byte[] plaintext = AESCoder.decrypt(storedKeyBytes, encryptedDataBuf);
+                    // Get decrypted AES key from CP-ABE result
+                    byte[] aesKey = result.key.toBytes();
+                    System.out.println("Decrypted AES key length: " + aesKey.length);
+
+                    // Process key if needed (ensure it's 32 bytes for AES-256)
+                    if (aesKey.length > 32) {
+                        byte[] truncatedKey = new byte[32];
+                        System.arraycopy(aesKey, 0, truncatedKey, 0, 32);
+                        aesKey = truncatedKey;
+                    } else if (aesKey.length < 32) {
+                        byte[] paddedKey = new byte[32];
+                        System.arraycopy(aesKey, 0, paddedKey, 0, aesKey.length);
+                        aesKey = paddedKey;
+                    }
+
+                    // Decrypt the file content using AES
+                    byte[] plaintext = AESCoder.decrypt(aesKey, encryptedDataBuf);
+                    System.out.println("Decrypted plaintext length: " + plaintext.length);
+
+                    if (plaintext.length == 0) {
+                        throw new RuntimeException("Decrypted file is empty");
+                    }
+
                     HttpHeaders headers = new HttpHeaders();
-                    String outputFilename = FileUtil.getDecryptedFilename(encryptedFile.getOriginalFilename());
+                    String outputFilename =
+                            FileUtil.getDecryptedFilename(encryptedFile.getOriginalFilename());
 
                     if (originalFileType != null && !originalFileType.isEmpty()) {
-                        if (!outputFilename.toLowerCase().endsWith("." + originalFileType.toLowerCase())) {
+                        if (!outputFilename.toLowerCase()
+                                .endsWith("." + originalFileType.toLowerCase())) {
                             outputFilename = outputFilename + "." + originalFileType;
                         }
-                        headers.setContentType(MediaType.parseMediaType(FileUtil.getMimeType(outputFilename)));
+                        headers.setContentType(
+                                MediaType.parseMediaType(FileUtil.getMimeType(outputFilename)));
                     } else {
                         headers.setContentType(MediaType.APPLICATION_OCTET_STREAM);
                     }
@@ -330,11 +365,8 @@ public class CpabeController {
                     headers.setContentDispositionFormData("attachment", outputFilename);
 
                     // Track successful decryption
-                    activityService.trackActivity(
-                            user.getId(),
-                            "file_decrypted",
-                            encryptedFile.getOriginalFilename(),
-                            "File decrypted successfully");
+                    activityService.trackActivity(user.getId(), "file_decrypted",
+                            encryptedFile.getOriginalFilename(), "File decrypted successfully");
 
                     return new ResponseEntity<>(plaintext, headers, HttpStatus.OK);
                 } catch (Exception e) {
@@ -404,8 +436,7 @@ public class CpabeController {
                         fileInfo.put("createdAt", sdf.format(file.lastModified()));
 
                         return fileInfo;
-                    })
-                    .collect(Collectors.toList());
+                    }).collect(Collectors.toList());
 
             return ResponseEntity.ok(files);
         } catch (Exception e) {
@@ -419,8 +450,7 @@ public class CpabeController {
      * Downloads a specific encrypted file
      */
     @GetMapping("/files/download")
-    public ResponseEntity<?> downloadEncryptedFile(
-            @RequestParam("filename") String filename,
+    public ResponseEntity<?> downloadEncryptedFile(@RequestParam("filename") String filename,
             @RequestHeader("Authorization") String authHeader) {
         try {
             String userId = extractUserIdFromToken(authHeader.replace("Bearer ", ""));
@@ -428,8 +458,7 @@ public class CpabeController {
             Path filePath = userPath.resolve(filename);
 
             if (!Files.exists(filePath)) {
-                return ResponseEntity.status(HttpStatus.NOT_FOUND)
-                        .body("File not found");
+                return ResponseEntity.status(HttpStatus.NOT_FOUND).body("File not found");
             }
 
             byte[] fileBytes = Files.readAllBytes(filePath);
@@ -443,6 +472,46 @@ public class CpabeController {
             e.printStackTrace();
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body("Failed to download file: " + e.getMessage());
+        }
+    }
+
+    @PostMapping("/validate-key")
+    public ResponseEntity<?> validateKey(@RequestParam("key") MultipartFile keyFile) {
+        try {
+            byte[] pubBytes = Files.readAllBytes(keyInitService.getPublicKeyPath());
+            PublicKey pub = SerializeUtil.unserializePublicKey(pubBytes);
+
+            // Create a temporary file for the private key
+            Path tempKeyFile = Files.createTempFile("private_key_", ".dat");
+            keyFile.transferTo(tempKeyFile.toFile());
+
+            try {
+                PrivateKey prv =
+                        SerializeUtil.unserializePrivateKey(pub, Files.readAllBytes(tempKeyFile));
+
+                // Validate expiration
+                boolean isExpired = prv.expirationDate < System.currentTimeMillis();
+
+                Map<String, Object> response = new HashMap<>();
+                response.put("valid", !isExpired);
+                response.put("attributes",
+                        prv.comps.stream().map(comp -> comp.attr).collect(Collectors.toList()));
+                response.put("issuedTo", prv.userEmail);
+                response.put("issuedOn", new Date(prv.timestamp));
+                response.put("expiresOn", new Date(prv.expirationDate));
+
+                if (isExpired) {
+                    response.put("message", "Key has expired");
+                }
+
+                return ResponseEntity.ok(response);
+            } finally {
+                // Cleanup temp file
+                Files.deleteIfExists(tempKeyFile);
+            }
+        } catch (Exception e) {
+            return ResponseEntity.badRequest()
+                    .body(Map.of("valid", false, "message", "Invalid key file: " + e.getMessage()));
         }
     }
 

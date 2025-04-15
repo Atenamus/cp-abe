@@ -56,7 +56,8 @@ import jakarta.annotation.PostConstruct;
 public class MultiAuthorityABEService {
     private static final Logger logger = LoggerFactory.getLogger(MultiAuthorityABEService.class);
     private static final String STORAGE_DIR = "keys/";
-    private final Map<String, String> authoritySecretKeyMap = new HashMap<>(); // authorityId -> secretKeyFileId
+    private final Map<String, String> authoritySecretKeyMap = new HashMap<>(); // authorityId ->
+                                                                               // secretKeyFileId
     private final Map<String, String> authorityPublicKeyMap = new HashMap<>(); // Added for PK_θ
     private String globalParamsFileId;
     private final SecureRandom secureRandom = new SecureRandom();
@@ -73,20 +74,24 @@ public class MultiAuthorityABEService {
     public void init() {
         // Load existing global parameters
         File dir = new File(STORAGE_DIR);
-        File[] gpFiles = dir.listFiles((d, name) -> name.startsWith("gp_") && name.endsWith(".dat"));
+        File[] gpFiles =
+                dir.listFiles((d, name) -> name.startsWith("gp_") && name.endsWith(".dat"));
         if (gpFiles != null && gpFiles.length > 0) {
             globalParamsFileId = gpFiles[0].getName().replace("gp_", "").replace(".dat", "");
             logger.info("Found existing global parameters: {}", globalParamsFileId);
         } else {
             logger.info("Global parameters not found, initializing with default values...");
-            Set<String> defaultAttributeUniverse = Set.of("attr1@auth1", "attr2@auth1", "attr3@auth2");
+            Set<String> defaultAttributeUniverse =
+                    Set.of("attr1@auth1", "attr2@auth1", "attr3@auth2");
             Set<String> defaultAuthorityUniverse = Set.of("auth1", "auth2");
-            globalParamsFileId = globalSetup(80, defaultAttributeUniverse, defaultAuthorityUniverse);
+            globalParamsFileId =
+                    globalSetup(80, defaultAttributeUniverse, defaultAuthorityUniverse);
             logger.info("Global parameters initialized with fileId: {}", globalParamsFileId);
         }
 
         // Load existing authority keys
-        File[] skFiles = dir.listFiles((d, name) -> name.startsWith("sk_") && name.endsWith(".dat"));
+        File[] skFiles =
+                dir.listFiles((d, name) -> name.startsWith("sk_") && name.endsWith(".dat"));
         if (skFiles != null) {
             for (File skFile : skFiles) {
                 try (ObjectInputStream ois = new ObjectInputStream(new FileInputStream(skFile))) {
@@ -94,14 +99,16 @@ public class MultiAuthorityABEService {
                     ois.readObject(); // yBytes
                     String authorityId = ois.readUTF();
                     String skFileId = skFile.getName().replace("sk_", "").replace(".dat", "");
-                    String pkFileId = dir.listFiles((d, name) -> name.startsWith("pk_") && name.endsWith(".dat")
-                            && new File(STORAGE_DIR + name).exists())[0].getName().replace("pk_", "")
-                            .replace(".dat", "");
+                    String pkFileId = dir.listFiles((d, name) -> name.startsWith("pk_")
+                            && name.endsWith(".dat") && new File(STORAGE_DIR + name).exists())[0]
+                                    .getName().replace("pk_", "").replace(".dat", "");
                     authoritySecretKeyMap.put(authorityId, skFileId);
                     authorityPublicKeyMap.put(authorityId, pkFileId);
-                    logger.info("Loaded existing authority key for {}: pk={}, sk={}", authorityId, pkFileId, skFileId);
+                    logger.info("Loaded existing authority key for {}: pk={}, sk={}", authorityId,
+                            pkFileId, skFileId);
                 } catch (IOException | ClassNotFoundException e) {
-                    logger.warn("Failed to load authority key from {}: {}", skFile.getName(), e.getMessage());
+                    logger.warn("Failed to load authority key from {}: {}", skFile.getName(),
+                            e.getMessage());
                 }
             }
         }
@@ -109,7 +116,8 @@ public class MultiAuthorityABEService {
 
     private PairingParameters loadParametersForSecurityLevel(int securityParameter) {
         if (securityParameter < 80 || securityParameter > 256) {
-            throw new IllegalArgumentException("Security parameter must be between 80 and 256 bits");
+            throw new IllegalArgumentException(
+                    "Security parameter must be between 80 and 256 bits");
         }
 
         try {
@@ -125,8 +133,7 @@ public class MultiAuthorityABEService {
         }
     }
 
-    public String globalSetup(int securityParameter,
-            Set<String> attributeUniverse,
+    public String globalSetup(int securityParameter, Set<String> attributeUniverse,
             Set<String> authorityUniverse) {
         // Input validation
         if (attributeUniverse == null || attributeUniverse.isEmpty()) {
@@ -166,15 +173,17 @@ public class MultiAuthorityABEService {
                         g = g.getImmutable();
                         break;
                     }
-                    logger.warn("Generated invalid or zero element, retrying ({}/{})", attempts + 1, maxAttempts);
-                } catch (ArithmeticException e) {
-                    logger.warn("Arithmetic exception during element generation, retrying ({}/{})", attempts + 1,
+                    logger.warn("Generated invalid or zero element, retrying ({}/{})", attempts + 1,
                             maxAttempts);
+                } catch (ArithmeticException e) {
+                    logger.warn("Arithmetic exception during element generation, retrying ({}/{})",
+                            attempts + 1, maxAttempts);
                 }
                 attempts++;
             }
             if (g == null) {
-                throw new RuntimeException("Failed to generate valid generator after " + maxAttempts + " attempts");
+                throw new RuntimeException(
+                        "Failed to generate valid generator after " + maxAttempts + " attempts");
             }
             logger.info("Generator g generated: {}", g.toString());
 
@@ -184,11 +193,9 @@ public class MultiAuthorityABEService {
             Function<String, Element> fFunction = randomOracle::hashToElement;
 
             // Create GlobalParameters object
-            GlobalParameters gp = new GlobalParameters(
-                    p, pairing, g, G,
-                    Set.copyOf(attributeUniverse),
-                    Set.copyOf(authorityUniverse),
-                    hFunction, fFunction);
+            GlobalParameters gp =
+                    new GlobalParameters(p, pairing, g, G, Set.copyOf(attributeUniverse),
+                            Set.copyOf(authorityUniverse), hFunction, fFunction);
 
             // Save to file
             String globalParamsFileId = UUID.randomUUID().toString();
@@ -216,14 +223,16 @@ public class MultiAuthorityABEService {
 
     public Map<String, String> authSetup(String authorityId) {
         if (globalParamsFileId == null) {
-            throw new IllegalStateException("Global parameters not initialized. Run globalSetup first.");
+            throw new IllegalStateException(
+                    "Global parameters not initialized. Run globalSetup first.");
         }
 
         // Check if authority already exists
         if (authoritySecretKeyMap.containsKey(authorityId)) {
             String skFileId = authoritySecretKeyMap.get(authorityId);
             String pkFileId = authorityPublicKeyMap.get(authorityId);
-            logger.info("Authority {} already exists, reusing keys: pk={}, sk={}", authorityId, pkFileId, skFileId);
+            logger.info("Authority {} already exists, reusing keys: pk={}, sk={}", authorityId,
+                    pkFileId, skFileId);
             return Map.of("publicKeyFileId", pkFileId, "secretKeyFileId", skFileId);
         }
 
@@ -252,7 +261,8 @@ public class MultiAuthorityABEService {
             String skFilePath = STORAGE_DIR + "sk_" + skFileId + ".dat";
 
             // Save public key
-            try (ObjectOutputStream oos = new ObjectOutputStream(new FileOutputStream(pkFilePath))) {
+            try (ObjectOutputStream oos =
+                    new ObjectOutputStream(new FileOutputStream(pkFilePath))) {
                 oos.writeObject(e_g_g_alpha.toBytes());
                 oos.writeObject(g_y.toBytes());
                 oos.writeUTF(authorityId);
@@ -260,7 +270,8 @@ public class MultiAuthorityABEService {
             }
 
             // Save secret key (in practice, this should be encrypted or secured)
-            try (ObjectOutputStream oos = new ObjectOutputStream(new FileOutputStream(skFilePath))) {
+            try (ObjectOutputStream oos =
+                    new ObjectOutputStream(new FileOutputStream(skFilePath))) {
                 oos.writeObject(alpha.toBytes());
                 oos.writeObject(y.toBytes());
                 oos.writeUTF(authorityId);
@@ -278,11 +289,13 @@ public class MultiAuthorityABEService {
 
     public byte[] keyGen(String authorityId, String gid, Set<String> attributes) {
         if (globalParamsFileId == null) {
-            throw new IllegalStateException("Global parameters not initialized. Run globalSetup first.");
+            throw new IllegalStateException(
+                    "Global parameters not initialized. Run globalSetup first.");
         }
         String secretKeyFileId = authoritySecretKeyMap.get(authorityId);
         if (secretKeyFileId == null) {
-            throw new IllegalStateException("Authority " + authorityId + " not initialized. Run authSetup first.");
+            throw new IllegalStateException(
+                    "Authority " + authorityId + " not initialized. Run authSetup first.");
         }
 
         try {
@@ -313,10 +326,7 @@ public class MultiAuthorityABEService {
             // Step 3: Compute user secret key components
             // K_θ = g^α_θ * H(GID)^y_θ * g^t
             Element h_gid = gp.applyHFunction(gid);
-            Element K_theta = g.powZn(alpha)
-                    .mul(h_gid.powZn(y))
-                    .mul(g.powZn(t))
-                    .getImmutable();
+            Element K_theta = g.powZn(alpha).mul(h_gid.powZn(y)).mul(g.powZn(t)).getImmutable();
 
             // L = g^t
             Element L = g.powZn(t).getImmutable();
@@ -335,8 +345,8 @@ public class MultiAuthorityABEService {
             try (ObjectOutputStream oos = new ObjectOutputStream(baos)) {
                 oos.writeObject(K_theta.toBytes());
                 oos.writeObject(L.toBytes());
-                oos.writeObject(K_i.entrySet().stream()
-                        .collect(HashMap::new, (m, e) -> m.put(e.getKey(), e.getValue().toBytes()), HashMap::putAll));
+                oos.writeObject(K_i.entrySet().stream().collect(HashMap::new,
+                        (m, e) -> m.put(e.getKey(), e.getValue().toBytes()), HashMap::putAll));
                 oos.writeUTF(gid);
                 oos.writeUTF(authorityId);
             }
@@ -350,7 +360,8 @@ public class MultiAuthorityABEService {
 
     public byte[] encrypt(byte[] fileData, String policy) {
         if (globalParamsFileId == null) {
-            throw new IllegalStateException("Global parameters not initialized. Run globalSetup first.");
+            throw new IllegalStateException(
+                    "Global parameters not initialized. Run globalSetup first.");
         }
         if (policy == null || policy.trim().isEmpty()) {
             throw new IllegalArgumentException("Policy cannot be null or empty");
@@ -383,7 +394,8 @@ public class MultiAuthorityABEService {
             List<String> rho = policyResult.getRho();
 
             // Step 3: Encrypt AES key with CP-ABE
-            Element aesKeyElement = GT.newElementFromBytes(aesKey).getImmutable(); // Direct mapping to GT
+            Element aesKeyElement = GT.newElementFromBytes(aesKey).getImmutable(); // Direct mapping
+                                                                                   // to GT
             int l = accessMatrix.size();
             int n = accessMatrix.get(0).size();
 
@@ -400,7 +412,8 @@ public class MultiAuthorityABEService {
             for (int i = 0; i < l; i++) {
                 List<Integer> A_i = accessMatrix.get(i);
                 if (A_i.size() != n) {
-                    throw new IllegalArgumentException("Row " + i + " of access matrix must have " + n + " columns");
+                    throw new IllegalArgumentException(
+                            "Row " + i + " of access matrix must have " + n + " columns");
                 }
                 lambda[i] = Zr.newZeroElement();
                 for (int j = 0; j < n; j++) {
@@ -470,7 +483,8 @@ public class MultiAuthorityABEService {
 
     public byte[] decrypt(byte[] ciphertextBytes, List<byte[]> userKeyBytesList) {
         if (globalParamsFileId == null) {
-            throw new IllegalStateException("Global parameters not initialized. Run globalSetup first.");
+            throw new IllegalStateException(
+                    "Global parameters not initialized. Run globalSetup first.");
         }
         if (ciphertextBytes == null || userKeyBytesList == null || userKeyBytesList.isEmpty()) {
             throw new IllegalArgumentException("Ciphertext and user keys cannot be null or empty");
@@ -522,7 +536,8 @@ public class MultiAuthorityABEService {
                 Map<String, byte[]> K_i_bytes = (Map<String, byte[]>) ois.readObject();
                 Map<String, Element> K_i = new HashMap<>();
                 for (Map.Entry<String, byte[]> entry : K_i_bytes.entrySet()) {
-                    K_i.put(entry.getKey(), G1.newElementFromBytes(entry.getValue()).getImmutable());
+                    K_i.put(entry.getKey(),
+                            G1.newElementFromBytes(entry.getValue()).getImmutable());
                 }
                 String keyGid = ois.readUTF();
                 String authorityId = ois.readUTF();
@@ -562,7 +577,8 @@ public class MultiAuthorityABEService {
                     continue;
 
                 Element K_i = sk.getK_i().get(attr);
-                Element num = pairing.pairing(comp.getC_i(), sk.getL()).mul(pairing.pairing(comp.getD_i(), K_i));
+                Element num = pairing.pairing(comp.getC_i(), sk.getL())
+                        .mul(pairing.pairing(comp.getD_i(), K_i));
                 Element den = pairing.pairing(C_prime, sk.getK_theta());
                 Element term = num.div(den);
                 // Fix: Convert double w_i to BigInteger for Zr
@@ -684,7 +700,8 @@ public class MultiAuthorityABEService {
         // Implementation of T function: extracts authority from
         // "[attribute]@[authority]" format
         if (attribute == null || !attribute.contains("@")) {
-            throw new IllegalArgumentException("Invalid attribute format. Expected: [attribute]@[authority]");
+            throw new IllegalArgumentException(
+                    "Invalid attribute format. Expected: [attribute]@[authority]");
         }
         return attribute.split("@")[1];
     }
@@ -714,7 +731,8 @@ public class MultiAuthorityABEService {
             byte[] g_yBytes = (byte[]) ois.readObject();
             String authorityId = ois.readUTF();
 
-            Element e_g_g_alpha = pairing.getGT().newElementFromBytes(e_g_g_alphaBytes).getImmutable();
+            Element e_g_g_alpha =
+                    pairing.getGT().newElementFromBytes(e_g_g_alphaBytes).getImmutable();
             Element g_y = pairing.getG1().newElementFromBytes(g_yBytes).getImmutable();
 
             return new AuthorityPublicKey(e_g_g_alpha, g_y, authorityId);
@@ -743,9 +761,7 @@ public class MultiAuthorityABEService {
             Element g = G.newElementFromBytes(gBytes).getImmutable();
             RandomOracle randomOracle = new RandomOracle(G);
 
-            return new GlobalParameters(
-                    p, pairing, g, G,
-                    attributeUniverse, authorityUniverse,
+            return new GlobalParameters(p, pairing, g, G, attributeUniverse, authorityUniverse,
                     randomOracle::hashToElement, randomOracle::hashToElement);
         } catch (IOException | ClassNotFoundException e) {
             logger.error("Failed to load global parameters from {}", filePath, e);
