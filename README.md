@@ -78,8 +78,6 @@ The backend provides RESTful endpoints for CP-ABE operations:
 - `POST /api/cpabe/encrypt` - Encrypt files using an access policy
 - `POST /api/cpabe/decrypt` - Decrypt files using private keys
 
-For detailed API documentation, visit `http://localhost:8080/swagger-ui.html` after starting the backend.
-
 ## Testing
 
 Run backend tests:
