@@ -35,7 +35,8 @@ public class AuthService {
         }
 
         // Validate attributes format
-        List<String> validatedAttributes = AttributeUtil.validateAttributes(request.getAttributes());
+        List<String> validatedAttributes =
+                AttributeUtil.validateAttributes(request.getAttributes());
 
         User user = new User();
         user.setEmail(request.getEmail());
@@ -56,6 +57,13 @@ public class AuthService {
             String[] attributesArray = validatedAttributes.toArray(new String[0]);
             PrivateKey prv = cpabe.keygen(pub, msk, attributesArray);
 
+            // Add traceability information
+            prv.userId = user.getId().toString();
+            prv.userEmail = user.getEmail();
+            prv.timestamp = System.currentTimeMillis();
+            // Set expiration to 1 year from now
+            prv.expirationDate = System.currentTimeMillis() + (365L * 24 * 60 * 60 * 1000);
+
             byte[] prvBytes = SerializeUtil.serializePrivateKey(prv);
             FileUtil.writeFile(PRV_KEY_FILE, prvBytes);
         } catch (Exception e) {
@@ -73,6 +81,6 @@ public class AuthService {
             throw new RuntimeException("Invalid password");
         }
 
-        return jwtUtil.generateToken(user.getEmail());
+        return jwtUtil.generateToken(request.getEmail());
     }
 }
