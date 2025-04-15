@@ -51,8 +51,9 @@ public class SerializeUtil {
     /**
      * Serializes a Policy object into an ArrayList of Bytes.
      *
-     * @param arrlist The ArrayList of Bytes where the serialized data will be stored.
-     * @param p The Policy object to be serialized.
+     * @param arrlist The ArrayList of Bytes where the serialized data will be
+     *                stored.
+     * @param p       The Policy object to be serialized.
      */
     private static void serializePolicy(ArrayList<Byte> arrlist, Policy p) {
         serializeUint32(arrlist, p.k);
@@ -152,6 +153,17 @@ public class SerializeUtil {
     public static byte[] serializePrivateKey(PrivateKey privateKey) {
         ArrayList<Byte> byteList = new ArrayList<>();
         serializeElement(byteList, privateKey.d);
+
+        // Serialize traceability information
+        serializeString(byteList, privateKey.userId != null ? privateKey.userId : "");
+        serializeString(byteList, privateKey.userEmail != null ? privateKey.userEmail : "");
+        serializeUint32(byteList, (int) (privateKey.timestamp & 0xFFFFFFFF));
+        serializeUint32(byteList, (int) (privateKey.timestamp >>> 32));
+
+        // Serialize expiration date
+        serializeUint32(byteList, (int) (privateKey.expirationDate & 0xFFFFFFFF));
+        serializeUint32(byteList, (int) (privateKey.expirationDate >>> 32));
+
         int componentCount = privateKey.comps.size();
         serializeUint32(byteList, componentCount);
         for (int i = 0; i < componentCount; i++) {
@@ -172,6 +184,11 @@ public class SerializeUtil {
         ArrayList<Byte> arrlist = new ArrayList<Byte>();
         SerializeUtil.serializeElement(arrlist, cph.cs);
         SerializeUtil.serializeElement(arrlist, cph.c);
+
+        // Serialize encryption date
+        serializeUint32(arrlist, (int) (cph.encryptionDate & 0xFFFFFFFF));
+        serializeUint32(arrlist, (int) (cph.encryptionDate >>> 32));
+
         SerializeUtil.serializePolicy(arrlist, cph.p);
 
         return byte_arr2byte(arrlist);
@@ -184,14 +201,14 @@ public class SerializeUtil {
      * @return a byte array containing the same elements as the input ArrayList
      */
     private static byte[] byte_arr2byte(ArrayList<Byte> B) {
-		int len = B.size();
-		byte[] b = new byte[len];
-	
-		for (int i = 0; i < len; i++)
-			b[i] = B.get(i).byteValue();
-	
-		return b;
-	}
+        int len = B.size();
+        byte[] b = new byte[len];
+
+        for (int i = 0; i < len; i++)
+            b[i] = B.get(i).byteValue();
+
+        return b;
+    }
 
     // Deserialization Methods
 
@@ -323,6 +340,14 @@ public class SerializeUtil {
         cph.c = pub.p.getG1().newElement();
         offset = SerializeUtil.unserializeElement(cphBuf, offset, cph.cs);
         offset = SerializeUtil.unserializeElement(cphBuf, offset, cph.c);
+
+        // Deserialize encryption date
+        long encryptionDateLow = unserializeUint32(cphBuf, offset);
+        offset += 4;
+        long encryptionDateHigh = unserializeUint32(cphBuf, offset);
+        offset += 4;
+        cph.encryptionDate = (encryptionDateHigh << 32) | encryptionDateLow;
+
         offset_arr[0] = offset;
         cph.p = SerializeUtil.unserializePolicy(pub, cphBuf, offset_arr);
         offset = offset_arr[0];
@@ -370,20 +395,39 @@ public class SerializeUtil {
     }
 
     public static PrivateKey unserializePrivateKey(PublicKey pub, byte[] prvBytes) {
-        PrivateKey prv;
-        int i, offset, len;
-
-        prv = new PrivateKey();
-        offset = 0;
+        PrivateKey prv = new PrivateKey();
+        int offset = 0;
 
         prv.d = pub.p.getG2().newElement();
         offset = unserializeElement(prvBytes, offset, prv.d);
 
+        // Deserialize traceability information
+        StringBuffer userIdBuffer = new StringBuffer();
+        offset = unserializeString(prvBytes, offset, userIdBuffer);
+        prv.userId = userIdBuffer.toString();
+
+        StringBuffer userEmailBuffer = new StringBuffer();
+        offset = unserializeString(prvBytes, offset, userEmailBuffer);
+        prv.userEmail = userEmailBuffer.toString();
+
+        long timestampLow = unserializeUint32(prvBytes, offset);
+        offset += 4;
+        long timestampHigh = unserializeUint32(prvBytes, offset);
+        offset += 4;
+        prv.timestamp = (timestampHigh << 32) | timestampLow;
+
+        // Deserialize expiration date
+        long expirationDateLow = unserializeUint32(prvBytes, offset);
+        offset += 4;
+        long expirationDateHigh = unserializeUint32(prvBytes, offset);
+        offset += 4;
+        prv.expirationDate = (expirationDateHigh << 32) | expirationDateLow;
+
         prv.comps = new ArrayList<PrivateKeyComp>();
-        len = unserializeUint32(prvBytes, offset);
+        int len = unserializeUint32(prvBytes, offset);
         offset += 4;
 
-        for (i = 0; i < len; i++) {
+        for (int i = 0; i < len; i++) {
             PrivateKeyComp c = new PrivateKeyComp();
 
             StringBuffer sb = new StringBuffer("");

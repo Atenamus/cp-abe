@@ -29,14 +29,13 @@ import it.unisa.dia.gas.plaf.jpbc.pairing.parameters.PropertiesParameters;
 public class Cpabe {
 
     // Predefined elliptic curve parameters for the bilinear pairing
-    private static final String curveParams =
-            "type a\n" + "q 87807107996633125224377819847540498158068831994142082"
-                    + "1102865339926647563088022295707862517942266222142315585"
-                    + "8769582317459277713367317481324925129998224791\n"
-                    + "h 12016012264891146079388821366740534204802954401251311"
-                    + "822919615131047207289359704531102844802183906537786776\n"
-                    + "r 730750818665451621361119245571504901405976559617\n" + "exp2 159\n"
-                    + "exp1 107\n" + "sign1 1\n" + "sign0 1\n";
+    private static final String curveParams = "type a\n" + "q 87807107996633125224377819847540498158068831994142082"
+            + "1102865339926647563088022295707862517942266222142315585"
+            + "8769582317459277713367317481324925129998224791\n"
+            + "h 12016012264891146079388821366740534204802954401251311"
+            + "822919615131047207289359704531102844802183906537786776\n"
+            + "r 730750818665451621361119245571504901405976559617\n" + "exp2 159\n"
+            + "exp1 107\n" + "sign1 1\n" + "sign0 1\n";
 
     /**
      * Setup the CP-ABE system by generating public and master secret keys.
@@ -97,8 +96,8 @@ public class Cpabe {
     /**
      * Generate a private key for a user with a given set of attributes.
      *
-     * @param pub The public key.
-     * @param msk The master secret key.
+     * @param pub   The public key.
+     * @param msk   The master secret key.
      * @param attrs The attributes associated with the user.
      * @return The generated private key.
      * @throws NoSuchAlgorithmException If the hash algorithm is not available.
@@ -159,13 +158,16 @@ public class Cpabe {
     }
 
     /**
-     * Encrypt a message under the specified policy using CP-ABE. This method generates a random
-     * symmetric key and encrypts it using the CP-ABE scheme. The actual message should be encrypted
+     * Encrypt a message under the specified policy using CP-ABE. This method
+     * generates a random
+     * symmetric key and encrypts it using the CP-ABE scheme. The actual message
+     * should be encrypted
      * separately using the returned symmetric key.
      *
-     * @param pub The public key.
+     * @param pub    The public key.
      * @param policy The access policy string (e.g., "admin AND (finance OR hr)").
-     * @return A key-ciphertext pair containing the CP-ABE ciphertext and symmetric key.
+     * @return A key-ciphertext pair containing the CP-ABE ciphertext and symmetric
+     *         key.
      * @throws Exception If policy parsing or encryption operations fail.
      */
     public CipherKey encrypt(PublicKey pub, String policy) throws Exception {
@@ -205,19 +207,30 @@ public class Cpabe {
     }
 
     /**
-     * Decrypt a ciphertext using the provided secret keys. This method recovers the symmetric key
+     * Decrypt a ciphertext using the provided secret keys. This method recovers the
+     * symmetric key
      * that was encrypted using the CP-ABE scheme.
      *
-     * @param pub The public key.
-     * @param prv The user's private key containing attributes.
+     * @param pub    The public key.
+     * @param prv    The user's private key containing attributes.
      * @param cipher The CP-ABE ciphertext.
-     * @return An ElementBoolean containing the decrypted symmetric key and a success flag.
+     * @return An ElementBoolean containing the decrypted symmetric key and a
+     *         success flag.
      * @throws Exception If decryption operations fail.
      */
     public ElementBoolean decrypt(PublicKey pub, PrivateKey prv, Cipher cipher) {
         Element t;
         Element symmetricKey;
         ElementBoolean result = new ElementBoolean();
+
+        // Check if the key is not expired
+        if (prv.expirationDate < cipher.encryptionDate) {
+            result.key = null;
+            result.satisfy = false;
+            System.out.println("Key has expired. Key expiration: " + prv.expirationDate +
+                    ", Document encrypted: " + cipher.encryptionDate);
+            return result;
+        }
 
         Pairing pairing = pub.p;
         symmetricKey = pairing.getGT().newElement();
@@ -395,8 +408,8 @@ public class Cpabe {
     /**
      * Recursively fill the policy tree with shares of the secret value.
      *
-     * @param policyNode The current node in the policy tree.
-     * @param pub The public key.
+     * @param policyNode  The current node in the policy tree.
+     * @param pub         The public key.
      * @param secretShare The secret share to be assigned to the node.
      * @throws NoSuchAlgorithmException If the hash algorithm is not available.
      */
@@ -436,8 +449,8 @@ public class Cpabe {
      * Evaluate a polynomial at a given point.
      *
      * @param result The result of the evaluation.
-     * @param poly The polynomial to evaluate.
-     * @param x The point at which to evaluate the polynomial.
+     * @param poly   The polynomial to evaluate.
+     * @param x      The point at which to evaluate the polynomial.
      */
     private static void evaluatePolynomial(Element result, Polynomial poly, Element x) {
         int i;
@@ -462,7 +475,7 @@ public class Cpabe {
     /**
      * Generate a random polynomial of a given degree.
      *
-     * @param degree The degree of the polynomial.
+     * @param degree       The degree of the polynomial.
      * @param constantTerm The constant term of the polynomial.
      * @return The generated polynomial.
      */
@@ -570,7 +583,7 @@ public class Cpabe {
      * Convert a string to a group element using a hash function.
      *
      * @param element The group element to set.
-     * @param str The string to hash.
+     * @param str     The string to hash.
      * @throws NoSuchAlgorithmException If the hash algorithm is not available.
      */
     private static void elementFromString(Element element, String str)
